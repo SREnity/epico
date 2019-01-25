@@ -37,7 +37,7 @@ Code Layout
 Anatomy of a Plugin
 ---
 Plugins have three major interfaces to the Epico core:
-1. The auth function which authenticates to the API and performs an API call
+1. The auth function which preapares our ApiRequest to Authenticate to the API
 2. The paging peek function which looks at the response and determines if we need to page
 3. The post process function which takes the API responses and parses them into a final JSON response []byte 
 
@@ -53,7 +53,7 @@ var PluginPostProcessFunction = PluginPostProcess
 The function signatures are as follows:
 
 `PluginAuthFunction`: `func( generic_structs.ApiRequest, []string ) []byte`
-The parameters are an ApiRequest, and a `[]string` containing auth parameters and any other plugin-specific configs.  The return is a `[]byte` representing the API response.
+The parameters are an ApiRequest, and a `[]string` containing auth parameters and any other plugin-specific configs.  The return is an `ApiRequest` that has been presigned/filled with credentials/otherwise prepared to run and be authenticated.
 
 `PluginPagingPeekFunction`: `func( []byte, []string, interface{} ) ( interface{}, bool )`
 The parameters are the API response in `[]byte` form, the a `[]string` containing the split key from the `indicator_from_field` in the YAML paging section, and an `interface{}` representing the previous paging value/key, if any. The returns are an `interface{}` representing the new paging key and a `bool` indicating whether further paging is required.

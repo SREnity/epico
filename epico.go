@@ -30,9 +30,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
         utils.LogFatal("PullApiData", "Error opening plugin", err)
         return nil
     }
-    var PluginAuthFunction = new(*func(generic_structs.ApiRequest, []string)[]uint8)
+    var PluginAuthFunction = new(*func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest)
     authSymbol, err := plug.Lookup("PluginAuthFunction")
-    *PluginAuthFunction = authSymbol.(*func(generic_structs.ApiRequest, []string)[]uint8)
+    *PluginAuthFunction = authSymbol.(*func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest)
     if err != nil {
         utils.LogFatal("PullApiData", "Error looking up plugin Auth function", err)
         return nil
@@ -222,8 +222,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
             var requestValue []reflect.Value
             requestValue = append( requestValue, reflect.ValueOf(newApiRequest), reflect.ValueOf(authParams) )
-            response := reflect.ValueOf((**PluginAuthFunction)).Call(
+            finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
+            response := runApiRequest( finalRequest )
             comRequest := newApiRequest.ToComparableApiRequest()
             // If we've done a request to this endpoint before, append the
             //    result - otherwise, create a new key in our response Map.
@@ -275,8 +276,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     newRequestValue = append( newRequestValue,
                         reflect.ValueOf( nextApiRequest ),
                         reflect.ValueOf(authParams) )
-                    newResponse := reflect.ValueOf(
+                    newFinalRequest := reflect.ValueOf(
                         (**PluginAuthFunction) ).Call( newRequestValue )
+                    newResponse := runApiRequest( newFinalRequest )
 
                     comRequest = nextApiRequest.ToComparableApiRequest()
                     if _, ok := responseList[comRequest]; ok {
@@ -342,5 +344,29 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 //              Unmarshal the result to extract from current base key
 //              Add desired base key to the return map equal to our data blob
 //
+
+}
+
+
+func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
+
+    client := &http.Client{}
+    resp, err := client.Do(apiRequest.FullRequest)
+    if err != nil {
+        utils.LogFatal("runApiRequest", "Error running the request", err)
+        return nil
+    }
+    defer resp.Body.Close()
+    // TODO: Handle failed connections better / handle retry?
+    // i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
+    // [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
+
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        utils.LogFatal("runApiRequest", "Error reading request body", err)
+        return nil
+    }
+
+    return body
 
 }

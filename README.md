@@ -76,5 +76,6 @@ Future Improvements
 * Allow vars, cbk, dbk, cek, dek, etc to expand from a list so more than one request can go per endpoint.
 * Handle backoffs on requests.
 * Leverage goroutines for efficiency.
+* More idiomatic Go layout/formatting.
 * Accessible from other languages. (https://medium.com/learning-the-go-programming-language/calling-go-functions-from-other-languages-4c7d8bcc69bf)
 * Allow handling of errors separately/splitting into two JSON outputs?

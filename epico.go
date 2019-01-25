@@ -55,7 +55,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
     api := generic_structs.ApiRoot{}
 
-    responseList := make(map[generic_structs.ComparableApiRequest][]reflect.Value)
+//    responseList := make(map[generic_structs.ComparableApiRequest][]reflect.Value)
+    responseList := make(map[generic_structs.ComparableApiRequest][]byte)
+
     var jsonKeys []map[string]string
 
     files, err := ioutil.ReadDir(configLocation)
@@ -224,7 +226,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             requestValue = append( requestValue, reflect.ValueOf(newApiRequest), reflect.ValueOf(authParams) )
             finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
-            response := runApiRequest( finalRequest )
+            response := runApiRequest( finalRequest[0].Interface().(generic_structs.ApiRequest) )
             comRequest := newApiRequest.ToComparableApiRequest()
             // If we've done a request to this endpoint before, append the
             //    result - otherwise, create a new key in our response Map.
@@ -233,7 +235,8 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     responseList[comRequest], response... )
             } else {
                 responseList[comRequest] = append(
-                    make([]reflect.Value, 0), response... )
+//                    make([]reflect.Value, 0), response... )
+                    make([]byte, 0), response... )
             }
             // Add the first response to our new response list (map).  Now check
             // if we need to page.
@@ -249,7 +252,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                 // Call our peek function to see if we have a paging value.
                 var finalPeekValueList []reflect.Value
                 finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( response[0].Bytes() ) )
+                    finalPeekValueList, reflect.ValueOf( response ) )
                 finalPeekValueList = append(
                     finalPeekValueList, reflect.ValueOf( responseKeys ) )
                 finalPeekValueList = append(
@@ -278,7 +281,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                         reflect.ValueOf(authParams) )
                     newFinalRequest := reflect.ValueOf(
                         (**PluginAuthFunction) ).Call( newRequestValue )
-                    newResponse := runApiRequest( newFinalRequest )
+                    newResponse := runApiRequest( newFinalRequest[0].Interface().(generic_structs.ApiRequest) )
 
                     comRequest = nextApiRequest.ToComparableApiRequest()
                     if _, ok := responseList[comRequest]; ok {
@@ -286,7 +289,8 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                             responseList[comRequest], newResponse... )
                     } else {
                         responseList[comRequest] = append(
-                            make([]reflect.Value, 0), newResponse... )
+//                            make([]reflect.Value, 0), newResponse... )
+                            make([]byte, 0), newResponse... )
                     }
 
                     newResponseKeys := strings.Split(
@@ -297,7 +301,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     var finalPeekValueList []reflect.Value
                     finalPeekValueList = append(
                         finalPeekValueList, reflect.ValueOf(
-                        newResponse[0].Bytes() ) )
+                        newResponse ) )
                     finalPeekValueList = append(
                         finalPeekValueList, reflect.ValueOf( newResponseKeys ) )
                     finalPeekValueList = append(
@@ -318,15 +322,16 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
     //    but that kind of breaks the idea that we would return everything from
     //    a single external call as a single JSON blob.  So instead, we're just
     //    going to use the one provided in a general configuration file.
-    finalResponseByteMap := make(map[generic_structs.ComparableApiRequest][]byte)
-    for k, b := range responseList {
-        for _, v := range b {
-            finalResponseByteMap[k] = append(
-                finalResponseByteMap[k], v.Bytes()... )
-        }
-    }
+//    finalResponseByteMap := make(map[generic_structs.ComparableApiRequest][]byte)
+//    for k, b := range responseList {
+//        for _, v := range b {
+//            finalResponseByteMap[k] = append(
+//                finalResponseByteMap[k], v.Bytes()... )
+//        }
+//    }
     var finalResponseValueList []reflect.Value
-    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( finalResponseByteMap ) )
+//    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( finalResponseByteMap ) )
+    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( responseList ) )
     // Send over the various key sets we've accumulated for base/error keys.
     finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( jsonKeys ) )
     finalResponse := reflect.ValueOf( (**PluginPostProcessFunction) ).Call(

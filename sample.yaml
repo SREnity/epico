@@ -1,0 +1,36 @@
+---
+name: "(string) Name of the API root service"
+vars_data:
+  var1: [ "(Map of Slices)", "Expansion", "variable", "data", "for", "build"]
+vars:
+  var1: "{{(string) Substitution stirng for expansion variable (\"{{}}\" required)}}"
+paging:
+  location_to: "(string) How we pass back our page - querystring or body"
+  indicator_from_field: "(string) Field key set paging info comes in"
+  indicator_to_field: "(string) Field name paging info is passed back in"
+  indicator_from_structure: "(string) The paging structure - response or iterator"
+  indicator_to_structure: "(string) How to know paging is done? (null_value, etc)"
+endpoints: 
+  - name: "(string) Name of the API endpoint"
+    vars:
+      service: "(string) Variable to be expanded for this endpoint"
+    endpoint: "(string) URL of the endpoint being called"
+    current_base_key: "(string) Key set representing where the desired data in response will be held"
+    desired_base_key: "(string) Key set representing where we will place the data in the final output"
+    current_error_key: "(string) Key set representing where error data in the response will be held"
+    desired_error_key: "(string) Key set representing where we will place the error data in the final output"
+    documentation: "(string) URL representing where the API documentation can be found"
+    params:
+      querystring:
+        vars1: [ "(Map of Slices)", "Multiple", "values", "spread", "across", "multiple", "requests" ]
+      header:
+        vars1: [ "(Map of Slices)", "Multiple", "values", "spread", "across", "multiple", "requests" ]
+      body:
+        vars1: [ "(Map of Slices)", "Multiple", "values", "spread", "across", "multiple", "requests" ]
+#    endpoints:
+#      - key: # Repositories.Id
+#          name:
+#          endpoint:
+#          documentation:
+#          params:
+#            foo3: $foo1

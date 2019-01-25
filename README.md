@@ -1,6 +1,6 @@
 About
 ---
-Epico aims to make API ingestion easy.  By providing a common framework to manage API calls and plugins to handle any API-specific logic - Epico aims to make API ingestion to be as simple as creating a YAML representing the endpoints you want to ingest.
+Epico aims to make API ingestion easy.  By providing a common framework to manage API calls and plugins to handle any API-specific logic - Epico aims to make API ingestion to be as simple as creating a YAML representing the endpoints you want to ingest. 
 
 Example Usage
 ---
@@ -29,10 +29,10 @@ func responseFunc( answer []byte ) {
 
 Code Layout
 ---
-`utils`: Utilities used by plugins for common API tasks such managing/parsing JSON/XML.
-`structs`: Basic structs representing common connection characteristics - ApiRequest, ApiResponse, etc.
-`signers`: Signers used by various APIs for security/auth.
-`sample.xml`: A sample API definition XML with the various options laid out.
+`utils`: Utilities used by plugins for common API tasks such managing/parsing JSON/XML. 
+`structs`: Basic structs representing common connection characteristics - ApiRequest, ApiResponse, etc. 
+`signers`: Signers used by various APIs for security/auth. 
+`sample.xml`: A sample API definition XML with the various options laid out. 
 
 
 Anatomy of a Plugin
@@ -73,7 +73,7 @@ Future Improvements
 ---
 * Appropriate testing.
 * Plugin build process and appropraite YAML expansions.
-* * Global functions that do not use expansion vars get repeated in every cache file.
+ * Global functions that do not use expansion vars get repeated in every cache file.
 * Allow vars, cbk, dbk, cek, dek, etc to expand from a list so more than one request can go per endpoint.
 * Handle backoffs on requests.
 * Leverage goroutines for efficiency.

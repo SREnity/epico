@@ -10,7 +10,7 @@ import (
     "reflect"
     "strings"
 
-    generic_structs "../structs"
+    generic_structs "github.com/SREnity/epico/structs"
 
     xj "github.com/basgys/goxml2json"
     "github.com/satori/go.uuid"

@@ -15,9 +15,8 @@ import (
 func main() {
     // Arg 1: This is the path to your epico YAML configs directory.
     // Arg 2: This is the path to your desired epico plugin SO file.
-    // Arg 3: This is the first piece of your authentication creds (plugin dependent). 
-    // Arg 4: This is the second piece of your authentication creds (plugin dependent). 
-    // Arg 5: This is the third piece of your authentication creds (plugin dependent - often a blank string). 
+    // Arg 3: This is the authentication creds and any other plugin-specific
+    //        configuration variables required.
     responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"} )
 }
 
@@ -54,7 +53,7 @@ var PluginPostProcessFunction = PluginPostProcess
 The function signatures are as follows:
 
 `PluginAuthFunction`: `func( generic_structs.ApiRequest, []string ) []byte`
-The parameters are an ApiRequest, and a `[]string` containing auth parameters.  The return is a `[]byte` representing the API response.
+The parameters are an ApiRequest, and a `[]string` containing auth parameters and any other plugin-specific configs.  The return is a `[]byte` representing the API response.
 
 `PluginPagingPeekFunction`: `func( []byte, []string, interface{} ) ( interface{}, bool )`
 The parameters are the API response in `[]byte` form, the a `[]string` containing the split key from the `indicator_from_field` in the YAML paging section, and an `interface{}` representing the previous paging value/key, if any. The returns are an `interface{}` representing the new paging key and a `bool` indicating whether further paging is required.

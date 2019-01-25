@@ -29,10 +29,10 @@ func responseFunc( answer []byte ) {
 
 Code Layout
 ---
-`utils`: Utilities used by plugins for common API tasks such managing/parsing JSON/XML. 
-`structs`: Basic structs representing common connection characteristics - ApiRequest, ApiResponse, etc. 
-`signers`: Signers used by various APIs for security/auth. 
-`sample.xml`: A sample API definition XML with the various options laid out. 
+`utils`: Utilities used by plugins for common API tasks such managing/parsing JSON/XML.  
+`structs`: Basic structs representing common connection characteristics - ApiRequest, ApiResponse, etc.  
+`signers`: Signers used by various APIs for security/auth.  
+`sample.xml`: A sample API definition XML with the various options laid out.  
 
 
 Anatomy of a Plugin

@@ -7,8 +7,8 @@ import (
     "reflect"
     "strings"
 
-    generic_structs "./structs"
-    "./utils"
+    generic_structs "github.com/SREnity/epico/structs"
+    "github.com/SREnity/epico/utils"
 
     "gopkg.in/yaml.v2"
 )

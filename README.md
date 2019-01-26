@@ -16,8 +16,11 @@ func main() {
     // Arg 1: This is the path to your epico YAML configs directory.
     // Arg 2: This is the path to your desired epico plugin SO file.
     // Arg 3: This is the authentication creds and any other plugin-specific
-    //        configuration variables required.
-    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"} )
+    // Arg 4: This is the peek function plugin-specific configuration variables
+    //        required.
+    // Arg 5: This is the post process function plugin-specific configuration
+    //        variables required.
+    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"}, []string{nil}, []string{nil} ) )
 }
 
 func responseFunc( answer []byte ) {
@@ -55,11 +58,11 @@ The function signatures are as follows:
 `PluginAuthFunction`: `func( generic_structs.ApiRequest, []string ) []byte`
 The parameters are an ApiRequest, and a `[]string` containing auth parameters and any other plugin-specific configs.  The return is an `ApiRequest` that has been presigned/filled with credentials/otherwise prepared to run and be authenticated.
 
-`PluginPagingPeekFunction`: `func( []byte, []string, interface{} ) ( interface{}, bool )`
-The parameters are the API response in `[]byte` form, the a `[]string` containing the split key from the `indicator_from_field` in the YAML paging section, and an `interface{}` representing the previous paging value/key, if any. The returns are an `interface{}` representing the new paging key and a `bool` indicating whether further paging is required.
+`PluginPagingPeekFunction`: `func( []byte, []string, interface{}, []string ) ( interface{}, bool )`
+The parameters are the API response in `[]byte` form, the a `[]string` containing the split key from the `indicator_from_field` in the YAML paging section, and an `interface{}` representing the previous paging value/key, if any. The last value is a `[]string` of any plugin-specific configs.  The returns are an `interface{}` representing the new paging key and a `bool` indicating whether further paging is required.
 
-`PluginPostProcessFunction`: `func( map[generic_structs.ComparableApiRequest][]byte, []map[string]string ) []byte`
-The parameters are a map of `ComparableApiRequests` and their associated `[]byte` API responses, and a list of API vars/keys associated with the requests made.  The return is a `[]byte` reprsenting the final JSON output.
+`PluginPostProcessFunction`: `func( map[generic_structs.ComparableApiRequest][]byte, []map[string]string, []string ) []byte`
+The parameters are a map of `ComparableApiRequests` and their associated `[]byte` API responses, and a list of API vars/keys associated with the requests made.  The last value is a `[]string` of any plugin-specific configs.  The return is a `[]byte` reprsenting the final JSON output.
 
 
 Development Considerations

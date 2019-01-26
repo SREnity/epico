@@ -23,7 +23,11 @@ import (
 // pluginLocation = The location of the .so file of the plugin being used.
 // authParams     = Plugin-specific auth parameters passed to the plugin being
 //                  used.
-func PullApiData( configLocation string, pluginLocation string, authParams []string ) []byte {
+// peekParams     = Plugin-specific peek parameters passed to the plugin being
+//                  used.
+// postParams     = Plugin-specific post parameters passed to the plugin being
+//                  used.
+func PullApiData( configLocation string, pluginLocation string, authParams []string, peekParams []string, postParams []string ) []byte {
 
     plug, err := plugin.Open(pluginLocation)
     if err != nil {
@@ -37,16 +41,16 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
         utils.LogFatal("PullApiData", "Error looking up plugin Auth function", err)
         return nil
     }
-    var PluginPostProcessFunction = new(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string)[]uint8)
+    var PluginPostProcessFunction = new(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string)[]uint8)
     ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
-    *PluginPostProcessFunction = ppSymbol.(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string)[]uint8)
+    *PluginPostProcessFunction = ppSymbol.(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string)[]uint8)
     if err != nil {
         utils.LogFatal("PullApiData", "Error looking up plugin PostProcess function", err)
         return nil
     }
-    var PluginPagingPeekFunction = new(*func([]uint8, []string, interface {})(interface {}, bool))
+    var PluginPagingPeekFunction = new(*func([]uint8, []string, interface {}, []string)(interface {}, bool))
     paPSymbol, err := plug.Lookup("PluginPagingPeekFunction")
-    *PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string, interface {}) (interface {}, bool))
+    *PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string, interface {}, []string) (interface {}, bool))
     if err != nil {
         utils.LogFatal("PullApiData", "Error looking up plugin PagingPeek function", err)
         return nil
@@ -55,7 +59,6 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
     api := generic_structs.ApiRoot{}
 
-//    responseList := make(map[generic_structs.ComparableApiRequest][]reflect.Value)
     responseList := make(map[generic_structs.ComparableApiRequest][]byte)
 
     var jsonKeys []map[string]string
@@ -224,7 +227,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
             var requestValue []reflect.Value
             newApiRequest.Time = time.Now()
-            requestValue = append( requestValue, reflect.ValueOf(newApiRequest), reflect.ValueOf(authParams) )
+            requestValue = append( requestValue,
+                reflect.ValueOf( newApiRequest ),
+                reflect.ValueOf( authParams ) )
             finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
             response := runApiRequest( finalRequest[0].Interface().(generic_structs.ApiRequest) )
@@ -236,7 +241,6 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     responseList[comRequest], response... )
             } else {
                 responseList[comRequest] = append(
-//                    make([]reflect.Value, 0), response... )
                     make([]byte, 0), response... )
             }
             // Add the first response to our new response list (map).  Now check
@@ -253,11 +257,10 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                 // Call our peek function to see if we have a paging value.
                 var finalPeekValueList []reflect.Value
                 finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( response ) )
-                finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( responseKeys ) )
-                finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( (*interface{})(nil) ) )
+                    finalPeekValueList, reflect.ValueOf( response ),
+                    reflect.ValueOf( responseKeys ),
+                    reflect.ValueOf( (*interface{})(nil) ),
+                    reflect.ValueOf( peekParams ) )
                 peekValue := reflect.ValueOf(
                     (**PluginPagingPeekFunction) ).Call( finalPeekValueList )
                 pageValue := peekValue[0].Interface()
@@ -291,7 +294,6 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                             responseList[comRequest], newResponse... )
                     } else {
                         responseList[comRequest] = append(
-//                            make([]reflect.Value, 0), newResponse... )
                             make([]byte, 0), newResponse... )
                     }
 
@@ -302,12 +304,10 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     // Call our peek function to see if we have a paging value.
                     var finalPeekValueList []reflect.Value
                     finalPeekValueList = append(
-                        finalPeekValueList, reflect.ValueOf(
-                        newResponse ) )
-                    finalPeekValueList = append(
-                        finalPeekValueList, reflect.ValueOf( newResponseKeys ) )
-                    finalPeekValueList = append(
-                        finalPeekValueList, reflect.ValueOf( oldPageValue ) )
+                        finalPeekValueList, reflect.ValueOf( newResponse ),
+                        reflect.ValueOf( newResponseKeys ),
+                        reflect.ValueOf( oldPageValue ),
+                        reflect.ValueOf( peekParams ) )
                     peekValue := reflect.ValueOf(
                         (**PluginPagingPeekFunction) ).Call(
                         finalPeekValueList )
@@ -324,18 +324,10 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
     //    but that kind of breaks the idea that we would return everything from
     //    a single external call as a single JSON blob.  So instead, we're just
     //    going to use the one provided in a general configuration file.
-//    finalResponseByteMap := make(map[generic_structs.ComparableApiRequest][]byte)
-//    for k, b := range responseList {
-//        for _, v := range b {
-//            finalResponseByteMap[k] = append(
-//                finalResponseByteMap[k], v.Bytes()... )
-//        }
-//    }
     var finalResponseValueList []reflect.Value
-//    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( finalResponseByteMap ) )
-    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( responseList ) )
-    // Send over the various key sets we've accumulated for base/error keys.
-    finalResponseValueList = append( finalResponseValueList, reflect.ValueOf( jsonKeys ) )
+    finalResponseValueList = append( finalResponseValueList,
+        reflect.ValueOf( responseList ), reflect.ValueOf( jsonKeys ),
+        reflect.ValueOf( postParams ) )
     finalResponse := reflect.ValueOf( (**PluginPostProcessFunction) ).Call(
         finalResponseValueList )
 

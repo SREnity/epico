@@ -26,11 +26,12 @@ func LogWarn( function string, text string, err error ) {
     log.Printf("(Epico:%v) %v: %v\n", function, text, err)
 }
 
+
 // This function simply takes an XML response and converts it to JSON (the
 //    preferred internal form of Epico).
 // Args:
 // apiResponse = A []byte representation of the XML API response.
-func XmlResponseProcess( apiResponse []byte ) map[string]map[string]interface{} {
+func XmlResponseProcess( apiResponse []byte ) []byte {
 
     jsonBody, err := xj.Convert( bytes.NewReader( apiResponse ) )
     if err != nil {
@@ -38,15 +39,15 @@ func XmlResponseProcess( apiResponse []byte ) map[string]map[string]interface{} 
         return nil
     }
 
-    // Handle AWS' terrible XML return with inifinite "item" tags.
-    var mapResponse map[string]map[string]interface{}
-    err = json.Unmarshal(jsonBody.Bytes(), &mapResponse)
-    if err != nil {
-        LogFatal("XmlResponseProcess", "Error unmarshaling JSON", err)
-        return nil
-    }
-
-    return mapResponse
+//    var mapResponse map[string]interface{}
+//    err = json.Unmarshal(jsonBody.Bytes(), &mapResponse)
+//    if err != nil {
+//        LogFatal("XmlResponseProcess", "Error unmarshaling JSON", err)
+//        return nil
+//    }
+//
+//    return mapResponse
+    return jsonBody.Bytes()
 
 }
 
@@ -210,6 +211,37 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
         }
     }
     return processedJson.Bytes()
+}
+
+
+func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+
+    var responseMap map[string]interface{}
+    err = json.Unmarshal(response, &responseMap)
+    if err != nil {
+        LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
+        return interface{}(nil), false
+    }
+
+    // New page value is nil.
+    var pageValue interface{}
+    // Loop through the key list and set pageValue to each successive key to
+    //   drill down.  We should never hit a list or a string (should always be
+    //   a map) until we reach this value since there should always only be one
+    //   per API response.
+    for _, v := range responseKeys {
+        if pageValue == nil {
+            pageValue = responseMap[v]
+        } else {
+            pageValue = pageValue.(map[string]interface{})[v]
+        }
+    }
+
+    if pageValue == oldPageValue {
+        pageValue = nil
+    }
+    return pageValue, ( pageValue != "" && pageValue != nil )
+
 }
 
 

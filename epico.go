@@ -223,6 +223,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             newApiRequest.FullRequest.URL.RawQuery = q.Encode()
 
             var requestValue []reflect.Value
+            newApiRequest.Time = time.Now()
             requestValue = append( requestValue, reflect.ValueOf(newApiRequest), reflect.ValueOf(authParams) )
             finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
@@ -276,6 +277,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     } // TODO: Handle more options here then just QS?
 
                     var newRequestValue []reflect.Value
+                    nextApiRequest.Time = time.Now()
                     newRequestValue = append( newRequestValue,
                         reflect.ValueOf( nextApiRequest ),
                         reflect.ValueOf(authParams) )

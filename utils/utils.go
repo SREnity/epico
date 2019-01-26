@@ -214,10 +214,15 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
 }
 
 
-func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+// Peeks at a standard JSON response for paging indicators.
+// Vars:
+// response     = The JSON response in []byte form.
+// responseKeys = The split list of keys to find the paging value.
+// oldPageValue = The previous page value.
+func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{} ) ( interface{}, bool ) {
 
     var responseMap map[string]interface{}
-    err = json.Unmarshal(response, &responseMap)
+    err := json.Unmarshal(response, &responseMap)
     if err != nil {
         LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
         return interface{}(nil), false

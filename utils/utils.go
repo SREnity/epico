@@ -255,12 +255,11 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
     parsedErrorStructure := make(map[string]interface{})
 
     for response, apiResponse := range apiResponseMap {
-        utils.ParsePostProcessedJson( response, apiResponse,
-            parsedStructure, parsedErrorStructure )
+        ParsePostProcessedJson( response, apiResponse, parsedStructure,
+            parsedErrorStructure )
     }
 
-    returnJson := utils.CollapseJson(
-        parsedStructure, parsedErrorStructure )
+    returnJson := CollapseJson( parsedStructure, parsedErrorStructure )
     return returnJson
 
 }
@@ -270,7 +269,7 @@ func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gener
         Email: authParams[0],
         PrivateKey: []byte(authParams[1]),
         PrivateKeyID: authParams[2],
-        Scopes: strings.split(authParams[3], ","),
+        Scopes: strings.Split( authParams[3], "," ),
         TokenURL: authParams[4],
     }
     // TODO: No blanks.

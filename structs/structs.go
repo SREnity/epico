@@ -36,7 +36,9 @@ type ApiRequest struct {
     CurrentErrorKey string
     DesiredErrorKey string
     Params ApiParams
+
     FullRequest *http.Request
+    Client *http.Client
 
     AttemptTime time.Time
     Time time.Time

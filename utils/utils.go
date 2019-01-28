@@ -2,6 +2,7 @@ package utils
 
 import (
     "bytes"
+    "context"
     "encoding/json"
     "fmt"
     "io/ioutil"
@@ -14,6 +15,8 @@ import (
 
     xj "github.com/basgys/goxml2json"
     "github.com/satori/go.uuid"
+
+    "golang.org/x/oauth2/jwt"
 )
 
 
@@ -39,14 +42,6 @@ func XmlResponseProcess( apiResponse []byte ) []byte {
         return nil
     }
 
-//    var mapResponse map[string]interface{}
-//    err = json.Unmarshal(jsonBody.Bytes(), &mapResponse)
-//    if err != nil {
-//        LogFatal("XmlResponseProcess", "Error unmarshaling JSON", err)
-//        return nil
-//    }
-//
-//    return mapResponse
     return jsonBody.Bytes()
 
 }
@@ -247,6 +242,45 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
     }
     return pageValue, ( pageValue != "" && pageValue != nil )
 
+}
+
+
+// Takes a map of requests to their []byte responses, iterates through them to 
+//    pull the desired data (and errors), and compiles the final result.
+// Vars:
+// apiResponseMap = A map of API requests made and their corresponding responses
+func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiRequest][]byte ) []byte {
+
+    parsedStructure := make(map[string]interface{})
+    parsedErrorStructure := make(map[string]interface{})
+
+    for response, apiResponse := range apiResponseMap {
+        utils.ParsePostProcessedJson( response, apiResponse,
+            parsedStructure, parsedErrorStructure )
+    }
+
+    returnJson := utils.CollapseJson(
+        parsedStructure, parsedErrorStructure )
+    return returnJson
+
+}
+
+func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+    cfg := &jwt.Config{
+        Email: authParams[0],
+        PrivateKey: []byte(authParams[1]),
+        PrivateKeyID: authParams[2],
+        Scopes: strings.split(authParams[3], ","),
+        TokenURL: authParams[4],
+    }
+    // TODO: No blanks.
+    //if cfg.TokenURL == "" {
+    //}
+
+    ctx := context.Background()
+    apiRequest.Client = cfg.Client(ctx)
+
+    return apiRequest
 }
 
 

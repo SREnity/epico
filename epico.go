@@ -350,14 +350,19 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
 func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
 
-    client := &http.Client{}
+    var client *http.Client
+    if apiRequest.Client == nil {
+        client = &http.Client{}
+    } else {
+        client = apiRequest.Client
+    }
     resp, err := client.Do(apiRequest.FullRequest)
     if err != nil {
         utils.LogFatal("runApiRequest", "Error running the request", err)
         return nil
     }
     defer resp.Body.Close()
-    // TODO: Handle failed connections better / handle retry?
+    // TODO: Handle failed connections better / handle retry? Golang "Context"?
     // i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
     // [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
 

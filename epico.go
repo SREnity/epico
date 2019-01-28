@@ -77,7 +77,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             return nil
         }
 
-        err = yaml.Unmarshal([]byte(rawYaml), &api);
+        err = yaml.Unmarshal([]byte(rawYaml), &api)
         if err != nil {
             utils.LogFatal("PullApiData", "Error unmarshaling YAML API definition", err)
             return nil
@@ -101,7 +101,11 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             //    endpoint data if we move this per below?
             // TODO: This should happen at cache creation time (or post
             //    creation) to speed up usage.
-            vars = rootSettingsData.Vars
+            if len(rootSettingsData.Vars) != 0 {
+                vars = rootSettingsData.Vars
+            } else {
+                vars = make(map[string]string)
+            }
             epSubs := false
             if len(ep.Vars) != 0 {
                 epSubs = true
@@ -371,6 +375,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
+    //utils.LogWarn("Response", string(body), nil)
 
     return body
 

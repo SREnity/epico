@@ -209,6 +209,20 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
 }
 
 
+// Peeks at a standard XML response for paging indicators.
+// Vars:
+// response     = The XML response in []byte form.
+// responseKeys = The split list of keys to find the paging value.
+// oldPageValue = The previous page value.
+func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue interface{} ) ( interface{}, bool ) {
+
+    jsonResponse := utils.XmlResponseProcess( response )
+
+    return utils.DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue )
+
+}
+
+
 // Peeks at a standard JSON response for paging indicators.
 // Vars:
 // response     = The JSON response in []byte form.

@@ -126,22 +126,22 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             } else {
                 paging = rootSettingsData.Paging
             }
-            if len(ep.CurrentBaseKey) < 1 {
+            if len(ep.CurrentBaseKey) > 0 {
                 cbk = ep.CurrentBaseKey
             } else {
                 cbk = []string(nil)
             }
-            if len(ep.DesiredBaseKey) < 1 {
+            if len(ep.DesiredBaseKey) > 0 {
                 dbk = ep.DesiredBaseKey
             } else {
                 dbk = []string(nil)
             }
-            if len(ep.CurrentErrorKey) < 1 {
+            if len(ep.CurrentErrorKey) > 0 {
                 cek = ep.CurrentErrorKey
             } else {
                 cek = []string(nil)
             }
-            if len(ep.DesiredErrorKey) < 1 {
+            if len(ep.DesiredErrorKey) > 0 {
                 dek = ep.DesiredErrorKey
             } else {
                 dek = []string(nil)
@@ -204,7 +204,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             // Allowing for multiple base keys and error keys breaks request
             //    comparability, so we need to add them to our extra keyset
             //    instead for usage later.
-            newKeySet["key_count"] = strconv.Itoa(len(cbk) - 1)
+            newKeySet["key_count"] = strconv.Itoa(len(cbk))
             for i, _ := range cbk {
                 newKeySet["current_base_key_" + strconv.Itoa(i)] = cbk[i]
                 newKeySet["desired_base_key_" + strconv.Itoa(i)] = dbk[i]

@@ -4,11 +4,11 @@ import (
     "bytes"
     "context"
     "encoding/json"
-//    "fmt"
     "io/ioutil"
     "log"
 //    "os"
     "reflect"
+    "strconv"
     "strings"
 
     generic_structs "github.com/SREnity/epico/structs"
@@ -119,7 +119,7 @@ func CollapseJson( returnsList map[string]interface{}, errorsList map[string]int
 //                        parsing.
 // parsedStructure      = Map we store response data in.
 // parsedErrorStructure = Map we store error data in.
-func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{} ) {
+func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, jsonKeys []map[string]string, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{} ) {
     // This chunk transforms the JSON based on the YAML requirements and
     //    collapses the list.
     var unparsedStructure map[string]interface{}
@@ -129,19 +129,22 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, proc
         LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
     }
 
-    if len(response.CurrentBaseKey) != len(response.DesiredBaseKey) ||
-          len(response.CurrentBaseKey) != len(response.DesiredErrorKey) ||
-          len(response.CurrentBaseKey) != len(response.CurrentErrorKey) {
-        LogFatal( "ParsePostProcessedJson",
-            "Current and desired key lists must be the same length.", nil )
-    } else {
+    // Find our additional key data in the list of keys so we can work with it.
+    for _, keys := range jsonKeys
+        if keys["api_call_name"] != response.Name {
+            continue
+        }
         // Here we handle passing in list form so we can pull multiple pieces of
         //    data from each API call.
-        for i, _ := range response.CurrentBaseKey {
-            cbkSet := strings.Split( response.CurrentBaseKey[i], "." )
-            dbkSet := strings.Split( response.DesiredBaseKey[i], "." )
-            cekSet := strings.Split( response.CurrentErrorKey[i], "." )
-            dekSet := strings.Split( response.DesiredErrorKey[i], "." )
+        for i := range strconv.Atoi(keys["key_count"]) {
+            cbkSet := strings.Split(
+                keys["current_base_key_" + strconv.Itoa(i)], "." )
+            dbkSet := strings.Split(
+                keys["desired_base_key_" + strconv.Itoa(i)], "." )
+            cekSet := strings.Split(
+                keys["current_error_key_" + strconv.Itoa(i)], "." )
+            dekSet := strings.Split(
+                keys["desired_error_key_" + strconv.Itoa(i)], "." )
             if len(cbkSet) < 1 || len(dbkSet) < 1 {
                 LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
             }

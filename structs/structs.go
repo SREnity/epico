@@ -47,10 +47,6 @@ type ApiRequest struct {
 type ComparableApiRequest struct {
     Name string
     Endpoint string
-    CurrentBaseKey []string // Managing APIs that return a dict => list
-    DesiredBaseKey []string // Managing APIs that return a dict => list
-    CurrentErrorKey []string
-    DesiredErrorKey []string
     AttemptTime time.Time
     Time time.Time
 }

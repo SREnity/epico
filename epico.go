@@ -5,6 +5,7 @@ import (
     "net/http"
     "plugin"
     "reflect"
+    "strconv"
     "strings"
     "time"
 
@@ -199,6 +200,16 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             //    post process.
             for k, v := range ep.Vars {
                 newKeySet[k] = v
+            }
+            // Allowing for multiple base keys and error keys breaks request
+            //    comparability, so we need to add them to our extra keyset
+            //    instead for usage later.
+            newKeySet["key_count"] = strconv.Itoa(len(cbk) - 1)
+            for i, _ := range cbk {
+                newKeySet["current_base_key_" + strconv.Itoa(i)] = cbk[i]
+                newKeySet["desired_base_key_" + strconv.Itoa(i)] = dbk[i]
+                newKeySet["current_error_key_" + strconv.Itoa(i)] = cek[i]
+                newKeySet["desired_error_key_" + strconv.Itoa(i)] = dek[i]
             }
 
             // TODO: This seems dreadfully inefficient...

@@ -136,7 +136,11 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
         }
         // Here we handle passing in list form so we can pull multiple pieces of
         //    data from each API call.
-        for i := range strconv.Atoi(keys["key_count"]) {
+        length, err := strconv.Atoi(keys["key_count"])
+        if err != nil {
+            LogFatal("ParsePostProcessedJson", "Invalid key count", err)
+        }
+        for i := range length {
             cbkSet := strings.Split(
                 keys["current_base_key_" + strconv.Itoa(i)], "." )
             dbkSet := strings.Split(

@@ -92,7 +92,8 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
         for _, ep := range api.Endpoints {
             // Clone and adjust settings map
-            var name, cbk, dbk, cek, dek string
+            var name string
+            var cbk, dbk, cek, dek []string
             var vars, paging map[string]string
             var params generic_structs.ApiParams
 
@@ -124,25 +125,25 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             } else {
                 paging = rootSettingsData.Paging
             }
-            if ep.CurrentBaseKey != "" {
+            if len(ep.CurrentBaseKey) < 1 {
                 cbk = ep.CurrentBaseKey
             } else {
-                cbk = ""
+                cbk = []string(nil)
             }
-            if ep.DesiredBaseKey != "" {
+            if len(ep.DesiredBaseKey) < 1 {
                 dbk = ep.DesiredBaseKey
             } else {
-                dbk = ""
+                dbk = []string(nil)
             }
-            if ep.CurrentErrorKey != "" {
+            if len(ep.CurrentErrorKey) < 1 {
                 cek = ep.CurrentErrorKey
             } else {
-                cek = ""
+                cek = []string(nil)
             }
-            if ep.DesiredErrorKey != "" {
+            if len(ep.DesiredErrorKey) < 1 {
                 dek = ep.DesiredErrorKey
             } else {
-                dek = ""
+                dek = []string(nil)
             }
             if len(ep.Params.QueryString) != 0 || len(ep.Params.Body) != 0 ||
                   len(ep.Params.Header) != 0 {
@@ -159,13 +160,28 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
             if epSubs {
                 for k, v := range ep.Vars {
-                    name = strings.Replace( name, "{{" + k + "}}", v, -1 )
-                    cbk = strings.Replace( cbk, "{{" + k + "}}", v, -1 )
-                    dbk = strings.Replace( dbk, "{{" + k + "}}", v, -1 )
-                    cek = strings.Replace( cek, "{{" + k + "}}", v, -1 )
-                    dek = strings.Replace( dek, "{{" + k + "}}", v, -1 )
-                    ep.Endpoint = strings.Replace( ep.Endpoint, "{{" + k + "}}", v, -1 )
-                    ep.Documentation = strings.Replace( ep.Documentation, "{{" + k + "}}", v, -1 )
+                    if len(cbk) != len(dbk) || len(cbk) != len(cek) ||
+                          len(cbk) != len(dek) {
+                        utils.LogFatal( "PullApiData",
+                            "Current and desired key lists must be the same length.", nil )
+                        return nil
+                    } else {
+                        name = strings.Replace( name, "{{" + k + "}}", v, -1 )
+                        for i, _ := range cbk {
+                            cbk[i] = strings.Replace( cbk[i],
+                                "{{" + k + "}}", v, -1 )
+                            dbk[i] = strings.Replace( dbk[i],
+                                "{{" + k + "}}", v, -1 )
+                            cek[i] = strings.Replace( cek[i],
+                                "{{" + k + "}}", v, -1 )
+                            dek[i] = strings.Replace( dek[i],
+                                "{{" + k + "}}", v, -1 )
+                        }
+                        ep.Endpoint = strings.Replace( ep.Endpoint,
+                            "{{" + k + "}}", v, -1 )
+                        ep.Documentation = strings.Replace( ep.Documentation,
+                            "{{" + k + "}}", v, -1 )
+                    }
                 }
             }
 

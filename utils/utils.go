@@ -4,7 +4,7 @@ import (
     "bytes"
     "context"
     "encoding/json"
-    "fmt"
+//    "fmt"
     "io/ioutil"
     "log"
 //    "os"
@@ -126,39 +126,49 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, proc
 
     err := json.Unmarshal(processedJson, &unparsedStructure)
     if err != nil {
-        fmt.Printf("ParsePostProcessedJson", "Error unmarshaling JSON", err)
+        LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
     }
 
+    if len(response.CurrentBaseKey) != len(response.DesiredBaseKey) ||
+          len(response.CurrentBaseKey) != len(response.DesiredErrorKey) ||
+          len(response.CurrentBaseKey) != len(response.CurrentErrorKey) {
+        LogFatal( "ParsePostProcessedJson",
+            "Current and desired key lists must be the same length.", nil )
+    } else {
+        // Here we handle passing in list form so we can pull multiple pieces of
+        //    data from each API call.
+        for i, _ := range response.CurrentBaseKey {
+            cbkSet := strings.Split( response.CurrentBaseKey[i], "." )
+            dbkSet := strings.Split( response.DesiredBaseKey[i], "." )
+            cekSet := strings.Split( response.CurrentErrorKey[i], "." )
+            dekSet := strings.Split( response.DesiredErrorKey[i], "." )
+            if len(cbkSet) < 1 || len(dbkSet) < 1 {
+                LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
+            }
 
-    cbkSet := strings.Split( response.CurrentBaseKey, "." )
-    dbkSet := strings.Split( response.DesiredBaseKey, "." )
-    cekSet := strings.Split( response.CurrentErrorKey, "." )
-    dekSet := strings.Split( response.DesiredErrorKey, "." )
-    if len(cbkSet) < 1 || len(dbkSet) < 1 {
-        LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
-    }
-
-    // Run through non-error keys.
-    parsedSubStructure := parseJsonSubStructure(
-        cbkSet, 0, unparsedStructure )
-    // Was getting some weird byRef issues when setting the map directly
-    //    equal and passing it as a param.
-    newVar := addJsonKeyStructure(
-        dbkSet, 0, parsedStructure, parsedSubStructure, true)
-    parsedStructure = newVar.(map[string]interface{})
+            // Run through non-error keys.
+            parsedSubStructure := parseJsonSubStructure(
+                cbkSet, 0, unparsedStructure )
+            // Was getting some weird byRef issues when setting the map directly
+            //    equal and passing it as a param.
+            newVar := addJsonKeyStructure(
+                dbkSet, 0, parsedStructure, parsedSubStructure, true)
+            parsedStructure = newVar.(map[string]interface{})
 
 
-    // Run through error keys.
-    // These aren't added explicitly to the key set, so we need to check for
-    //    nils.
-    if _, ok := unparsedStructure[cekSet[0]]; ok {
-        parsedSubStructure = parseJsonSubStructure(
-            cekSet, 0, unparsedStructure )
-        // Was getting some weird byRef issues when setting the map directly
-        //    equal and passing it as a param.
-        newVar = addJsonKeyStructure(
-            dekSet, 0, parsedErrorStructure, parsedSubStructure, false)
-        parsedErrorStructure = newVar.(map[string]interface{})
+            // Run through error keys.
+            // These aren't added explicitly to the key set (aren't always going
+            //    to be there), so we need to check for nils.
+            if _, ok := unparsedStructure[cekSet[0]]; ok {
+                parsedSubStructure = parseJsonSubStructure(
+                    cekSet, 0, unparsedStructure )
+                // Was getting some weird byRef issues when setting the map
+                //    directly equal and passing it as a param.
+                newVar = addJsonKeyStructure(
+                    dekSet, 0, parsedErrorStructure, parsedSubStructure, false)
+                parsedErrorStructure = newVar.(map[string]interface{})
+            }
+        }
     }
 
 }
@@ -278,6 +288,17 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
 
 }
 
+
+// Auth function for JWT implementations.  Takes JWT params and preps the http
+//    client attached to the ApiRequest.
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = JWT params in the order of:
+//              [0] => email
+//              [1] => private key
+//              [2] => private key id
+//              [3] => scopes (comma delimited string)
+//              [4] => token url
 func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
     cfg := &jwt.Config{
         Email: authParams[0],

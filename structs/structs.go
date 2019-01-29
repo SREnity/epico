@@ -19,10 +19,10 @@ type ApiEndpoint struct {
     Vars map[string]string `yaml:"vars,omitempty"`
     Paging map[string]string `yaml:"paging,omitempty"` // Optional
     Endpoint string `yaml:"endpoint"` // Required
-    CurrentBaseKey string `yaml:"current_base_key,omitempty"` // Managing APIs that return a dict => list
-    DesiredBaseKey string `yaml:"desired_base_key,omitempty"` // Managing APIs that return a dict => list
-    CurrentErrorKey string `yaml:"current_error_key,omitempty"` // Managing APIs that return a dict => list
-    DesiredErrorKey string `yaml:"desired_error_key,omitempty"` // Managing APIs that return a dict => list
+    CurrentBaseKey []string `yaml:"current_base_key,omitempty"` // Managing APIs that return a dict => list
+    DesiredBaseKey []string `yaml:"desired_base_key,omitempty"` // Managing APIs that return a dict => list
+    CurrentErrorKey []string `yaml:"current_error_key,omitempty"` // Managing APIs that return a dict => list
+    DesiredErrorKey []string `yaml:"desired_error_key,omitempty"` // Managing APIs that return a dict => list
     Documentation string `yaml:"documentation,omitempty"` // Optional
     Params ApiParams `yaml:"params,flow,omitempty"` // Optional
     Endpoints map[string]ApiEndpoint `yaml:"endpoints,omitempty"` // Iterating Key => Endpoint
@@ -31,10 +31,10 @@ type ApiEndpoint struct {
 type ApiRequest struct {
     Settings ApiRequestInheritableSettings
     Endpoint string
-    CurrentBaseKey string // Managing APIs that return a dict => list
-    DesiredBaseKey string // Managing APIs that return a dict => list
-    CurrentErrorKey string
-    DesiredErrorKey string
+    CurrentBaseKey []string // Managing APIs that return a dict => list
+    DesiredBaseKey []string // Managing APIs that return a dict => list
+    CurrentErrorKey []string
+    DesiredErrorKey []string
     Params ApiParams
 
     FullRequest *http.Request
@@ -47,10 +47,10 @@ type ApiRequest struct {
 type ComparableApiRequest struct {
     Name string
     Endpoint string
-    CurrentBaseKey string // Managing APIs that return a dict => list
-    DesiredBaseKey string // Managing APIs that return a dict => list
-    CurrentErrorKey string
-    DesiredErrorKey string
+    CurrentBaseKey []string // Managing APIs that return a dict => list
+    DesiredBaseKey []string // Managing APIs that return a dict => list
+    CurrentErrorKey []string
+    DesiredErrorKey []string
     AttemptTime time.Time
     Time time.Time
 }

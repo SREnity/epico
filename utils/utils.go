@@ -130,7 +130,7 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
     }
 
     // Find our additional key data in the list of keys so we can work with it.
-    for _, keys := range jsonKeys
+    for _, keys := range jsonKeys {
         if keys["api_call_name"] != response.Name {
             continue
         }

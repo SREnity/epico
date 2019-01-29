@@ -231,11 +231,13 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
 // response     = The XML response in []byte form.
 // responseKeys = The split list of keys to find the paging value.
 // oldPageValue = The previous page value.
-func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue interface{} ) ( interface{}, bool ) {
+// peekParams   = Unused, plugin-specific params.
+func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
 
     jsonResponse := XmlResponseProcess( response )
 
-    return DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue )
+    return DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue,
+        peekParams )
 
 }
 
@@ -245,7 +247,8 @@ func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue 
 // response     = The JSON response in []byte form.
 // responseKeys = The split list of keys to find the paging value.
 // oldPageValue = The previous page value.
-func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{} ) ( interface{}, bool ) {
+// peekParams   = Unused, plugin-specific params.
+func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
 
     var responseMap map[string]interface{}
     err := json.Unmarshal(response, &responseMap)

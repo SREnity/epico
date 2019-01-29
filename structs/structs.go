@@ -73,10 +73,6 @@ func (a ApiRequest) ToComparableApiRequest() ComparableApiRequest {
     return ComparableApiRequest{
         Name: a.Settings.Name,
         Endpoint: a.Endpoint,
-        CurrentBaseKey: a.CurrentBaseKey,
-        DesiredBaseKey: a.DesiredBaseKey,
-        CurrentErrorKey: a.CurrentErrorKey,
-        DesiredErrorKey: a.DesiredErrorKey,
         AttemptTime: a.AttemptTime,
         Time: a.Time,
         }

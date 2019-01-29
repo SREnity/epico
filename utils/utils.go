@@ -140,7 +140,7 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
         if err != nil {
             LogFatal("ParsePostProcessedJson", "Invalid key count", err)
         }
-        for i := range length {
+        for i := 0; i < length; i++ {
             cbkSet := strings.Split(
                 keys["current_base_key_" + strconv.Itoa(i)], "." )
             dbkSet := strings.Split(

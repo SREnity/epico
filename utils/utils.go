@@ -226,9 +226,9 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
 // oldPageValue = The previous page value.
 func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue interface{} ) ( interface{}, bool ) {
 
-    jsonResponse := utils.XmlResponseProcess( response )
+    jsonResponse := XmlResponseProcess( response )
 
-    return utils.DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue )
+    return DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue )
 
 }
 

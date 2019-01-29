@@ -276,14 +276,14 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
 //    pull the desired data (and errors), and compiles the final result.
 // Vars:
 // apiResponseMap = A map of API requests made and their corresponding responses
-func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiRequest][]byte ) []byte {
+func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiRequest][]byte, jsonKeys []map[string]string ) []byte {
 
     parsedStructure := make(map[string]interface{})
     parsedErrorStructure := make(map[string]interface{})
 
     for response, apiResponse := range apiResponseMap {
-        ParsePostProcessedJson( response, apiResponse, parsedStructure,
-            parsedErrorStructure )
+        ParsePostProcessedJson( response, jsonKeys, apiResponse,
+            parsedStructure, parsedErrorStructure )
     }
 
     returnJson := CollapseJson( parsedStructure, parsedErrorStructure )

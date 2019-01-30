@@ -278,75 +278,83 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             // Add the first response to our new response list (map).  Now check
             // if we need to page.
 
-            // If paging is indicated in the response body.
-            // TODO: How else would this be possible? Is it necessary?
-            if newApiRequest.Settings.Paging["indicator_from_structure"] ==
-                  "response" {
-                // Here we handle multipart keys - response.key.key1 etc.
-                responseKeys := strings.Split(
-                    newApiRequest.Settings.Paging["indicator_from_field"], ".")
+            // Here we handle multipart keys - response.key.key1 etc.
+            responseKeys := strings.Split(
+                newApiRequest.Settings.Paging["indicator_from_field"], ".")
 
-                // Call our peek function to see if we have a paging value.
-                var finalPeekValueList []reflect.Value
-                finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( response ),
-                    reflect.ValueOf( responseKeys ),
-                    reflect.ValueOf( (*interface{})(nil) ),
-                    reflect.ValueOf( peekParams ) )
-                peekValue := reflect.ValueOf(
-                    (**PluginPagingPeekFunction) ).Call( finalPeekValueList )
-                pageValue := peekValue[0].Interface()
-                morePages := peekValue[1].Bool()
+            // Call our peek function to see if we have a paging value.
+            var finalPeekValueList []reflect.Value
+            finalPeekValueList = append(
+                finalPeekValueList, reflect.ValueOf( response ),
+                reflect.ValueOf( responseKeys ),
+                reflect.ValueOf( (*interface{})(nil) ),
+                reflect.ValueOf( peekParams ) )
+            peekValue := reflect.ValueOf(
+                (**PluginPagingPeekFunction) ).Call( finalPeekValueList )
+            pageValue := peekValue[0].Interface()
+            morePages := peekValue[1].Bool()
 
-                for morePages {
-                    oldPageValue := pageValue
-                    nextApiRequest := newApiRequest
-                    // Handle passing the paging indicator.
-                    if nextApiRequest.Settings.Paging["location_to"] ==
-                          "querystring" {
+            for morePages {
+                oldPageValue := pageValue
+                nextApiRequest := newApiRequest
+                // Handle passing the paging indicator.
+                // TODO: Handle "body"
+                if nextApiRequest.Settings.Paging["location_to"] ==
+                      "querystring" {
+                    if nextApiRequest.Settings.Paging[
+                          "indicator_from_structure"] == "full_url" {
+                        nextApiRequest.FullRequest.URL, err =
+                            nextApiRequest.FullRequest.URL.Parse(
+                            oldPageValue.(string) )
+                        if err != nil {
+                            utils.LogFatal("PullApiData", "Error parsing paging URL returned", err)
+                        }
+                    } else {
+                        // By default they just give us a param back.
                         q := nextApiRequest.FullRequest.URL.Query()
                         q.Set(nextApiRequest.Settings.Paging[
                             "indicator_to_field"], oldPageValue.(string))
                         nextApiRequest.FullRequest.URL.RawQuery = q.Encode()
-
-                    } // TODO: Handle more options here then just QS?
-
-                    var newRequestValue []reflect.Value
-                    nextApiRequest.Time = time.Now()
-                    newRequestValue = append( newRequestValue,
-                        reflect.ValueOf( nextApiRequest ),
-                        reflect.ValueOf(authParams) )
-                    newFinalRequest := reflect.ValueOf(
-                        (**PluginAuthFunction) ).Call( newRequestValue )
-                    newResponse := runApiRequest( newFinalRequest[0].Interface().(generic_structs.ApiRequest) )
-
-                    comRequest = nextApiRequest.ToComparableApiRequest()
-                    if _, ok := responseList[comRequest]; ok {
-                        responseList[comRequest] = append(
-                            responseList[comRequest], newResponse... )
-                    } else {
-                        responseList[comRequest] = append(
-                            make([]byte, 0), newResponse... )
                     }
 
-                    newResponseKeys := strings.Split(
-                        nextApiRequest.Settings.Paging["indicator_from_field"],
-                        "." )
+                } // TODO: Handle more options here then just QS?
 
-                    // Call our peek function to see if we have a paging value.
-                    var finalPeekValueList []reflect.Value
-                    finalPeekValueList = append(
-                        finalPeekValueList, reflect.ValueOf( newResponse ),
-                        reflect.ValueOf( newResponseKeys ),
-                        reflect.ValueOf( oldPageValue ),
-                        reflect.ValueOf( peekParams ) )
-                    peekValue := reflect.ValueOf(
-                        (**PluginPagingPeekFunction) ).Call(
-                        finalPeekValueList )
-                    pageValue = peekValue[0].Interface()
-                    morePages = peekValue[1].Bool()
+                var newRequestValue []reflect.Value
+                nextApiRequest.Time = time.Now()
+                newRequestValue = append( newRequestValue,
+                    reflect.ValueOf( nextApiRequest ),
+                    reflect.ValueOf(authParams) )
+                newFinalRequest := reflect.ValueOf(
+                    (**PluginAuthFunction) ).Call( newRequestValue )
+                newResponse := runApiRequest(
+                    newFinalRequest[0].Interface().(generic_structs.ApiRequest) )
 
+                comRequest = nextApiRequest.ToComparableApiRequest()
+                if _, ok := responseList[comRequest]; ok {
+                    responseList[comRequest] = append(
+                        responseList[comRequest], newResponse... )
+                } else {
+                    responseList[comRequest] = append(
+                        make([]byte, 0), newResponse... )
                 }
+
+                newResponseKeys := strings.Split(
+                    nextApiRequest.Settings.Paging["indicator_from_field"],
+                    "." )
+
+                // Call our peek function to see if we have a paging value.
+                var finalPeekValueList []reflect.Value
+                finalPeekValueList = append(
+                    finalPeekValueList, reflect.ValueOf( newResponse ),
+                    reflect.ValueOf( newResponseKeys ),
+                    reflect.ValueOf( oldPageValue ),
+                    reflect.ValueOf( peekParams ) )
+                peekValue := reflect.ValueOf(
+                    (**PluginPagingPeekFunction) ).Call(
+                    finalPeekValueList )
+                pageValue = peekValue[0].Interface()
+                morePages = peekValue[1].Bool()
+
             }
         }
     }
@@ -387,6 +395,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
     } else {
         client = apiRequest.Client
     }
+    //utils.LogWarn("FullRequest", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
     resp, err := client.Do(apiRequest.FullRequest)
     if err != nil {
         utils.LogFatal("runApiRequest", "Error running the request", err)
@@ -402,7 +411,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
-    //utils.LogWarn("Response", string(body), nil)
+    //utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body
 

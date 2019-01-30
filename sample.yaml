@@ -8,7 +8,7 @@ paging:
   location_to: "(string) How we pass back our page - querystring or body"
   indicator_from_field: "(string) Field key set paging info comes in"
   indicator_to_field: "(string) Field name paging info is passed back in"
-  indicator_from_structure: "(string) The paging structure - response or iterator"
+  indicator_from_structure: "(string) The returned paging structure - param (default), iterator, full_url"
   indicator_to_structure: "(string) How to know paging is done? (null_value, etc)"
 endpoints: 
   - name: "(string) Name of the API endpoint"

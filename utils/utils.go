@@ -119,7 +119,7 @@ func CollapseJson( returnsList map[string]interface{}, errorsList map[string]int
 //                        parsing.
 // parsedStructure      = Map we store response data in.
 // parsedErrorStructure = Map we store error data in.
-func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, jsonKeys []map[string]string, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{} ) {
+func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, jsonKeys []map[string]string, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{} ) ( map[string]interface{}, map[string]interface{} ) {
     // This chunk transforms the JSON based on the YAML requirements and
     //    collapses the list.
     var unparsedStructure map[string]interface{}
@@ -154,12 +154,12 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
             }
 
             // Run through non-error keys.
-            parsedSubStructure := parseJsonSubStructure(
-                cbkSet, 0, unparsedStructure )
+            parsedSubStructure := parseJsonSubStructure( cbkSet, 0,
+                unparsedStructure )
             // Was getting some weird byRef issues when setting the map directly
             //    equal and passing it as a param.
-            newVar := addJsonKeyStructure(
-                dbkSet, 0, parsedStructure, parsedSubStructure, true)
+            newVar := addJsonKeyStructure( dbkSet, 0, parsedStructure,
+                parsedSubStructure, true)
             parsedStructure = newVar.(map[string]interface{})
 
 
@@ -167,17 +167,17 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
             // These aren't added explicitly to the key set (aren't always going
             //    to be there), so we need to check for nils.
             if _, ok := unparsedStructure[cekSet[0]]; ok {
-                parsedSubStructure = parseJsonSubStructure(
-                    cekSet, 0, unparsedStructure )
+                parsedSubStructure = parseJsonSubStructure( cekSet, 0,
+                    unparsedStructure )
                 // Was getting some weird byRef issues when setting the map
                 //    directly equal and passing it as a param.
-                newVar = addJsonKeyStructure(
-                    dekSet, 0, parsedErrorStructure, parsedSubStructure, false)
+                newVar = addJsonKeyStructure( dekSet, 0, parsedErrorStructure,
+                    parsedSubStructure, false)
                 parsedErrorStructure = newVar.(map[string]interface{})
             }
         }
     }
-
+    return parsedStructure, parsedErrorStructure
 }
 
 
@@ -289,8 +289,10 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
     parsedErrorStructure := make(map[string]interface{})
 
     for response, apiResponse := range apiResponseMap {
-        ParsePostProcessedJson( response, jsonKeys, apiResponse,
-            parsedStructure, parsedErrorStructure )
+        structureVar, errorVar := ParsePostProcessedJson( response, jsonKeys,
+            apiResponse, parsedStructure, parsedErrorStructure )
+        parsedStructure = structureVar
+        parsedErrorStructure = errorVar
     }
 
     returnJson := CollapseJson( parsedStructure, parsedErrorStructure )
@@ -419,13 +421,14 @@ func parseJsonSubStructure( kSet []string, count int, subStructure interface{} )
             if reflect.TypeOf(v[kSet[count]]) ==
                   reflect.TypeOf(blankInterfaceList) {
                 // If we do have a list, then return it.
-                finalInterfaceList = append(
-                    finalInterfaceList, v[kSet[count]].([]interface{})...)
-            } else if !reflect.DeepEqual( v[kSet[count]], "" ) {
-                // If we aren't a nil string, then we have a map that should
-                //    be transformed into a list.
-                finalInterfaceList = append(
-                    finalInterfaceList, v[kSet[count]] )
+                finalInterfaceList = append( finalInterfaceList,
+                    v[kSet[count]].([]interface{})...)
+            } else if !reflect.DeepEqual( v[kSet[count]], "" ) &&
+                  v[kSet[count]] != nil {
+                // If we aren't a nil string (or nil), then we have a map that
+                //    should be transformed into a list.
+                finalInterfaceList = append( finalInterfaceList,
+                    v[kSet[count]] )
             }
         } else {
             // We don't want [ <nil> ], so just don't append if it's nil.

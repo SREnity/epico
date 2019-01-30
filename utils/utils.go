@@ -256,7 +256,6 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
         LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
         return interface{}(nil), false
     }
-    log.Fatalf("Response Keys: %v\noldPageValue: %v\nresponseMap[next]: %v\n\n", responseKeys, oldPageValue, responseMap["next"])
     // New page value is nil.
     var pageValue interface{}
     // Loop through the key list and set pageValue to each successive key to
@@ -274,7 +273,6 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
     if pageValue == oldPageValue {
         pageValue = nil
     }
-    log.Fatalf("Final Keys:\nPageValue: %v\noldPageValue: %v\n\n", pageValue, oldPageValue)
     return pageValue, ( pageValue != "" && pageValue != nil )
 
 }

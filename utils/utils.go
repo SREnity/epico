@@ -256,7 +256,6 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
         LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
         return interface{}(nil), false
     }
-
     // New page value is nil.
     var pageValue interface{}
     // Loop through the key list and set pageValue to each successive key to
@@ -298,6 +297,21 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
     returnJson := CollapseJson( parsedStructure, parsedErrorStructure )
     return returnJson
 
+}
+
+
+// Auth function for basic username/password auth implementations.  Takes a
+//    username and password and constructs the Authorization header. 
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = JWT params in the order of:
+//              [0] => username
+//              [1] => password
+func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    apiRequest.FullRequest.SetBasicAuth(authParams[0], authParams[1])
+
+    return apiRequest
 }
 
 

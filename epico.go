@@ -279,8 +279,31 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             // if we need to page.
 
             // Here we handle multipart keys - response.key.key1 etc.
-            responseKeys := strings.Split(
-                newApiRequest.Settings.Paging["indicator_from_field"], ".")
+            var responseKeys []string
+            if newApiRequest.Settings.Paging["indicator_from_structure"] ==
+                  "calculated" {
+                // If this is a calculated paging var, then it should be a list
+                //    with the results per page first and total results second.
+                //    Since the multipart keys could be of different lengths, we
+                //    store where the split is to break it up in the peek func.
+                separateKeys := strings.Split(
+                    newApiRequest.Settings.Paging["indicator_from_field"], ",")
+                if len(separateKeys) != 3 {
+                    utils.LogFatal("PullApiData",
+                        "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+                }
+                responseKeys = []string{strconv.Itoa(len(
+                    strings.Split(separateKeys[0], "."))) +
+                    "," + strconv.Itoa(len(
+                    strings.Split( separateKeys[1], "." )))}
+                for _, v := range separateKeys {
+                    responseKeys = append( responseKeys,
+                        strings.Split( v, ".")... )
+                }
+            } else {
+                responseKeys = strings.Split(
+                    newApiRequest.Settings.Paging["indicator_from_field"], ".")
+            }
 
             // Call our peek function to see if we have a paging value.
             var finalPeekValueList []reflect.Value
@@ -301,6 +324,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                 // TODO: Handle "body"
                 if nextApiRequest.Settings.Paging["location_to"] ==
                       "querystring" {
+                    // TODO: Change to 'case'
                     if nextApiRequest.Settings.Paging[
                           "indicator_from_structure"] == "full_url" {
                         nextApiRequest.FullRequest.URL, err =
@@ -309,6 +333,14 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                         if err != nil {
                             utils.LogFatal("PullApiData", "Error parsing paging URL returned", err)
                         }
+                    } else if nextApiRequest.Settings.Paging[
+                          "indicator_from_structure"] == "calculated" {
+                        q := nextApiRequest.FullRequest.URL.Query()
+                        q.Set( nextApiRequest.Settings.Paging[
+                            "indicator_to_field"],
+                            strconv.FormatFloat( oldPageValue.(float64), 'f',
+                            -1, 64 ) )
+                        nextApiRequest.FullRequest.URL.RawQuery = q.Encode()
                     } else {
                         // By default they just give us a param back.
                         q := nextApiRequest.FullRequest.URL.Query()
@@ -338,9 +370,32 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                         make([]byte, 0), newResponse... )
                 }
 
-                newResponseKeys := strings.Split(
-                    nextApiRequest.Settings.Paging["indicator_from_field"],
-                    "." )
+                var newResponseKeys []string
+                if nextApiRequest.Settings.Paging["indicator_from_structure"] ==
+                      "calculated" {
+                    // See above.
+                    separateKeys := strings.Split(
+                        nextApiRequest.Settings.Paging["indicator_from_field"],
+                        ",")
+                    if len(separateKeys) != 3 {
+                        utils.LogFatal("PullApiData",
+                            "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+                    }
+
+                    newResponseKeys = []string{strconv.Itoa(len(
+                        strings.Split(separateKeys[0], "."))) +
+                        "," + strconv.Itoa(len(
+                        strings.Split( separateKeys[1], "." )))}
+
+                    for _, v := range separateKeys {
+                        newResponseKeys = append( newResponseKeys,
+                            strings.Split( v, ".")... )
+                    }
+                } else {
+                    newResponseKeys = strings.Split(
+                        nextApiRequest.Settings.Paging["indicator_from_field"],
+                        "." )
+                }
 
                 // Call our peek function to see if we have a paging value.
                 var finalPeekValueList []reflect.Value
@@ -410,6 +465,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
+    //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
     //utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body

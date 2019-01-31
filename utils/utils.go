@@ -286,6 +286,111 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
 }
 
 
+// Peeks at a standard JSON response for paging indicators that need to be
+//    calculated.
+// Vars:
+// response     = The JSON response in []byte form.
+// responseKeys = The split list of keys to find the paging value.
+//                [0]    => Length of current page value key and length of per
+//                              page value key in csv
+//                [1..X] => Key parts for current page value key
+//                [X..Y] => Key parts for per page value key
+//                [Y..Z] => Key parts for total results value key
+// oldPageValue = The previous page value.
+// peekParams   = Unused, plugin-specific params.
+func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+
+    if len(responseKeys) < 4 {
+        LogFatal("CalculatePagingPeek",
+            "Unable to calculate paging without at least three keys", nil)
+    }
+    splitLengthKeys := strings.Split( responseKeys[0], "," )
+
+    if len(splitLengthKeys) != 2 {
+        LogFatal("CalculatePagingPeek",
+            "Invalid length keys for paging calculation", nil)
+    }
+    pageKeySplit, err := strconv.Atoi( splitLengthKeys[0] )
+    if err != nil {
+        LogFatal("CalculatePagingPeek",
+            "Non integer length keys for paging calculation", nil)
+    }
+
+    perPageKeySplit, err := strconv.Atoi( splitLengthKeys[1] )
+    if err != nil {
+        LogFatal("CalculatePagingPeek",
+            "Non integer length keys for paging calculation", nil)
+    }
+
+    // Remove our calculated length values after using them.
+    responseKeys = responseKeys[1:]
+
+    var responseMap map[string]interface{}
+    err = json.Unmarshal(response, &responseMap)
+    if err != nil {
+        var responseSlice []interface{}
+        err1 := json.Unmarshal(response, &responseSlice)
+        if err1 != nil {
+            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
+                err)
+        } else {
+            LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
+                err)
+            return interface{}(nil), false
+        }
+    }
+    // New page value is nil.
+    // Ensure we got the key
+    if _, ok := responseMap[responseKeys[0]]; ok {}
+
+    var pageValue, perPageValue, totalCountValue interface{}
+    // Loop through the key list and set pageValue to each successive key to
+    //   drill down.  We should never hit a list or a string (should always be
+    //   a map) until we reach this value since there should always only be one
+    //   per API response.
+
+    // Loop through the keys to find the total value.
+    for _, v := range responseKeys[pageKeySplit+perPageKeySplit:] {
+        if totalCountValue == nil {
+            totalCountValue = responseMap[v]
+        } else {
+            totalCountValue = totalCountValue.(map[string]interface{})[v]
+        }
+    }
+
+    // Loop through the keys to find the per page value.
+    for _, v := range responseKeys[pageKeySplit:pageKeySplit+perPageKeySplit] {
+        if perPageValue == nil {
+            perPageValue = responseMap[v]
+        } else {
+            perPageValue = perPageValue.(map[string]interface{})[v]
+        }
+    }
+    // If the per page value is greater than total count, no more pages.
+    if totalCountValue.(float64) < perPageValue.(float64) {
+        return interface{}(nil), false
+    }
+
+    // Loop through the keys to find the current page value.
+    for _, v := range responseKeys[:pageKeySplit] {
+        if pageValue == nil {
+            pageValue = responseMap[v]
+        } else {
+            pageValue = pageValue.(map[string]interface{})[v]
+        }
+    }
+
+    if pageValue != nil && perPageValue != nil && totalCountValue != nil {
+        if pageValue.(float64)*perPageValue.(float64) < totalCountValue.(float64) {
+            pageValue = pageValue.(float64) + 1
+        }
+    }
+
+    return pageValue, ( pageValue != "" && pageValue != nil )
+
+}
+
+
 // Takes a map of requests to their []byte responses, iterates through them to 
 //    pull the desired data (and errors), and compiles the final result.
 // Vars:
@@ -366,6 +471,27 @@ func QuerystringTokenAuth( apiRequest generic_structs.ApiRequest, authParams []s
     q := apiRequest.FullRequest.URL.Query()
     q.Set( authParams[0], authParams[1] )
     apiRequest.FullRequest.URL.RawQuery = q.Encode()
+
+    return apiRequest
+}
+
+
+// Auth function for custom header auth implementations.  Takes an alternating
+//    list of keys/values and constructs the header. 
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = Auth params in any quantity, alternating key then value:
+//              [x] => header key
+//              [x+1] => header value
+func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    if len(authParams) % 2 != 0 {
+        LogFatal("CustomHeaderAuth",
+            "Invalid header params - must have a value for every key.", nil)
+    }
+    for i := 0; i < len(authParams) - 1; i++ {
+        apiRequest.FullRequest.Header.Add(authParams[i], authParams[i+1])
+    }
 
     return apiRequest
 }

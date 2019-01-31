@@ -253,8 +253,16 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
     var responseMap map[string]interface{}
     err := json.Unmarshal(response, &responseMap)
     if err != nil {
-        LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
-        return interface{}(nil), false
+        var responseSlice []interface{}
+        err1 := json.Unmarshal(response, &responseSlice)
+        if err1 != nil {
+            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
+                err)
+        } else {
+            LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
+                err)
+            return interface{}(nil), false
+        }
     }
     // New page value is nil.
     var pageValue interface{}
@@ -287,9 +295,40 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
     parsedStructure := make(map[string]interface{})
     parsedErrorStructure := make(map[string]interface{})
 
-    for response, apiResponse := range apiResponseMap {
-        structureVar, errorVar := ParsePostProcessedJson( response, jsonKeys,
-            apiResponse, parsedStructure, parsedErrorStructure )
+    for request, response := range apiResponseMap {
+
+        // Catch JSON slices that don't have a map at the root
+        var jsonSlice []interface{}
+        err := json.Unmarshal(response, &jsonSlice)
+        if err == nil {
+            LogWarn("DefaultJsonPostProcess", "JSON is a slice - building map.",
+                err)
+            // Maybe more efficient, but less robust than build and marshal?
+            response = append( []byte("{\"items\":"),
+                append( response, []byte("}") ... ) ... )
+            // Add our new key we created to the base key expected.
+            for i, v := range jsonKeys {
+                if v["api_call_name"] == request.Name {
+                    length, err := strconv.Atoi(v["key_count"])
+                    if err != nil {
+                        LogFatal("DefaultJsonPostProcess",
+                            "Non-integer key_count is invalid", err)
+                    }
+                    for ci := 0; ci < length; ci++ {
+                        keyString := "current_base_key_" + strconv.Itoa(ci)
+                        if _, ok := jsonKeys[i][keyString]; ok ||
+                              jsonKeys[i][keyString] == "" {
+                            jsonKeys[i][keyString] = "items"
+                        } else {
+                            jsonKeys[i][keyString] = "items." +
+                                jsonKeys[i][keyString]
+                        }
+                    }
+                }
+            }
+        }
+        structureVar, errorVar := ParsePostProcessedJson( request, jsonKeys,
+            response, parsedStructure, parsedErrorStructure )
         parsedStructure = structureVar
         parsedErrorStructure = errorVar
     }
@@ -310,6 +349,23 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
 func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
 
     apiRequest.FullRequest.SetBasicAuth(authParams[0], authParams[1])
+
+    return apiRequest
+}
+
+
+// Auth function for basic querystring token auth implementations.  Takes a
+//    token and constructs the querystring. 
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = Auth params in the order of:
+//              [0] => token querystring key
+//              [0] => token
+func QuerystringTokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    q := apiRequest.FullRequest.URL.Query()
+    q.Set( authParams[0], authParams[1] )
+    apiRequest.FullRequest.URL.RawQuery = q.Encode()
 
     return apiRequest
 }

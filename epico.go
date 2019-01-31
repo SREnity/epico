@@ -395,7 +395,6 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
     } else {
         client = apiRequest.Client
     }
-    //utils.LogWarn("FullRequest", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
     resp, err := client.Do(apiRequest.FullRequest)
     if err != nil {
         utils.LogFatal("runApiRequest", "Error running the request", err)
@@ -411,7 +410,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
-    //utils.LogWarn("Response", string(body)+"\n\n", nil)
+    utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body
 

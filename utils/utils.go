@@ -459,17 +459,25 @@ func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gen
 }
 
 
-// Auth function for basic querystring token auth implementations.  Takes a
-//    token and constructs the querystring. 
+// Auth function for custom querystring auth implementations.  Takes an
+//    alternating list of keys/values and constructs the querystring. 
 // Vars:
 // apiRequest = The ApiRequest to be used.
-// authParams = Auth params in the order of:
-//              [0] => token querystring key
-//              [0] => token
-func QuerystringTokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+// authParams = Auth params in any quantity, alternating key then value:
+//              [x] => header key
+//              [x+1] => header value
+func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    if len(authParams) % 2 != 0 {
+        LogFatal("CustomQuerystringAuth",
+            "Invalid querystring params - must have a value for every key.",
+            nil)
+    }
 
     q := apiRequest.FullRequest.URL.Query()
-    q.Set( authParams[0], authParams[1] )
+    for i := 0; i < len(authParams) - 1; i++ {
+        q.Set( authParams[i], authParams[i+1] )
+    }
     apiRequest.FullRequest.URL.RawQuery = q.Encode()
 
     return apiRequest

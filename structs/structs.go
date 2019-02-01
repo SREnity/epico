@@ -59,6 +59,10 @@ type ApiRequestInheritableSettings struct {
     Name string
     Vars map[string]string `yaml:"vars",omitempty`
     Paging map[string]string
+    Plugin string `yaml:"plugin"` // Required
+    AuthParams []string `yaml:"auth_params"`
+    PagingParams []string `yaml:"paging_params"`
+    PostProcessParams []string `yaml:"post_process_params"`
 }
 
 type ApiParams struct {

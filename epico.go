@@ -63,9 +63,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
         //   passed from CLI)
         var aps, paps, ppps []string
 
-        if len(api.AuthParms) == 0 {
+        if len(api.AuthParams) == 0 {
             aps = authParams
-        } else if len(authParms) == 0 {
+        } else if len(authParams) == 0 {
             aps = api.AuthParams
         } else {
             cliCount := 0
@@ -78,9 +78,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             aps = api.AuthParams
         }
 
-        if len(api.PagingParms) == 0 {
+        if len(api.PagingParams) == 0 {
             paps = peekParams
-        } else if len(peekParms) == 0 {
+        } else if len(peekParams) == 0 {
             paps = api.PagingParams
         } else {
             cliCount := 0
@@ -93,9 +93,9 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             paps = api.PagingParams
         }
 
-        if len(api.PostProcessParms) == 0 {
+        if len(api.PostProcessParams) == 0 {
             ppps = postParams
-        } else if len(postParms) == 0 {
+        } else if len(postParams) == 0 {
             ppps = api.PostProcessParams
         } else {
             cliCount := 0

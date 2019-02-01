@@ -22,14 +22,13 @@ import (
 // Args:
 // configLocation = The folder where config YAMLs can be found for the plugin
 //                  that is being used.
-// pluginLocation = The location of the .so file of the plugin being used.
 // authParams     = Plugin-specific auth parameters passed to the plugin being
 //                  used.
 // peekParams     = Plugin-specific peek parameters passed to the plugin being
 //                  used.
 // postParams     = Plugin-specific post parameters passed to the plugin being
 //                  used.
-func PullApiData( configLocation string, pluginLocation string, authParams []string, peekParams []string, postParams []string ) []byte {
+func PullApiData( configLocation string, authParams []string, peekParams []string, postParams []string ) []byte {
 
     api := generic_structs.ApiRoot{}
 
@@ -113,7 +112,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
 
 
         // Load the plugin and functions for this config file.
-        plug, err := plugin.Open(pluginLocation)
+        plug, err := plugin.Open(rootSettingsData.Plugin)
         if err != nil {
             utils.LogFatal("PullApiData", "Error opening plugin", err)
             return nil

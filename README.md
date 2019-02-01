@@ -82,3 +82,8 @@ Future Improvements
 * More idiomatic Go layout/formatting.
 * Accessible from other languages. (https://medium.com/learning-the-go-programming-language/calling-go-functions-from-other-languages-4c7d8bcc69bf)
 * Allow handling of errors separately/splitting into two JSON outputs?
+* Extract JSON handling with into its own package:
+ * ```    var iValue reflect.Value = reflect.ValueOf(&i)
+     indirectI := reflect.Indirect(iValue)
+     fmt.Println("i type : ", indirectI.Kind())
+     case: etc etc```

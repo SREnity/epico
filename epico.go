@@ -43,6 +43,12 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
         return nil
     }
 
+    // Declare this outside the process loop because the post process function
+    //    gets applied to results of all API calls.
+    var PluginPostProcessFunction = new( *func(
+            map[generic_structs.ComparableApiRequest][]uint8,
+            []map[string]string, []string)[]uint8 )
+
     for _, f := range files {
         rawYaml, err := ioutil.ReadFile(configLocation + f.Name())
         if err != nil {
@@ -61,7 +67,10 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
         // - input CLI params into config file params at designated places (so
         //   method/keys can be in the config and potentially sensative vars
         //   passed from CLI)
-        var aps, paps, ppps []string
+        // Note: post processing is done across ALL YAMLs, and thus must be
+        //    independent of any particular API.  That parameter is just passed
+        //    at runtime.
+        var aps, paps []string
 
         if len(api.AuthParams) == 0 {
             aps = authParams
@@ -93,21 +102,6 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             paps = api.PagingParams
         }
 
-        if len(api.PostProcessParams) == 0 {
-            ppps = postParams
-        } else if len(postParams) == 0 {
-            ppps = api.PostProcessParams
-        } else {
-            cliCount := 0
-            for i, v := range api.PostProcessParams {
-                if v == "{{}}" {
-                    api.PostProcessParams[i] = postParams[cliCount]
-                    cliCount += 1
-                }
-            }
-            ppps = api.PostProcessParams
-        }
-
         rootSettingsData := generic_structs.ApiRequestInheritableSettings{
             Name: api.Name,
             Vars: api.Vars,
@@ -115,7 +109,6 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             Plugin: api.Plugin,
             AuthParams: aps,
             PagingParams: paps,
-            PostProcessParams: ppps,
         }
 
 
@@ -137,17 +130,16 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             return nil
         }
 
-        var PluginPostProcessFunction = new( *func(
-            map[generic_structs.ComparableApiRequest][]uint8,
-            []map[string]string, []string)[]uint8 )
-        ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
-        *PluginPostProcessFunction = ppSymbol.( *func(
-            map[generic_structs.ComparableApiRequest][]uint8,
-            []map[string]string, []string)[]uint8 )
-        if err != nil {
-            utils.LogFatal("PullApiData",
-                "Error looking up plugin PostProcess function", err)
-            return nil
+        if *PluginPostProcessFunction == nil {
+            ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
+            *PluginPostProcessFunction = ppSymbol.( *func(
+                map[generic_structs.ComparableApiRequest][]uint8,
+                []map[string]string, []string)[]uint8 )
+            if err != nil {
+                utils.LogFatal("PullApiData",
+                    "Error looking up plugin PostProcess function", err)
+                return nil
+            }
         }
 
         var PluginPagingPeekFunction = new( *func([]uint8, []string,
@@ -493,7 +485,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
     var finalResponseValueList []reflect.Value
     finalResponseValueList = append( finalResponseValueList,
         reflect.ValueOf( responseList ), reflect.ValueOf( jsonKeys ),
-        reflect.ValueOf( rootSettingsData.PostProcessParams ) )
+        reflect.ValueOf( postParams ) )
     finalResponse := reflect.ValueOf( (**PluginPostProcessFunction) ).Call(
         finalResponseValueList )
 

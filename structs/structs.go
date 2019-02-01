@@ -13,7 +13,6 @@ type ApiRoot struct {
     Plugin string `yaml:"plugin"` // Required
     AuthParams []string `yaml:"auth_params"`
     PagingParams []string `yaml:"paging_params"`
-    PostProcessParams []string `yaml:"post_process_params"`
     Endpoints []ApiEndpoint `yaml:"endpoints"`
 }
 
@@ -62,7 +61,6 @@ type ApiRequestInheritableSettings struct {
     Plugin string `yaml:"plugin"` // Required
     AuthParams []string `yaml:"auth_params"`
     PagingParams []string `yaml:"paging_params"`
-    PostProcessParams []string `yaml:"post_process_params"`
 }
 
 type ApiParams struct {

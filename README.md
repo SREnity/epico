@@ -20,7 +20,27 @@ func main() {
     //        required.
     // Arg 5: This is the post process function plugin-specific configuration
     //        variables required.
-    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"}, []string(nil), []string(nil) ) )
+    // Arg 6: This allows for the passing of header, querystring, and body
+    //        parameters at runtime.
+    //            Structure:
+    //                {
+    //                    "ENDPOINT_NAME": {
+    //                        "header": {
+    //                            "KEY1": "VALUE1"
+    //                            ...
+    //                        },
+    //                        "querystring": {
+    //                            "KEY1": "VALUE1"
+    //                            ...
+    //                        },
+    //                        "body": {
+    //                            "KEY1": "VALUE1"
+    //                            ...
+    //                        },
+    //                    },
+    //                    ...
+    //                } 
+    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"}, []string(nil), []string(nil), map[string]map[string]map[string]string(nil) ) )
 }
 
 func responseFunc( answer []byte ) {

@@ -20,15 +20,35 @@ import (
 //    post-processing, and paging.  It returns a []byte of the condensed JSON
 //    response from all configs/endpoints.
 // Args:
-// configLocation = The folder where config YAMLs can be found for the plugin
-//                  that is being used.
-// authParams     = Plugin-specific auth parameters passed to the plugin being
-//                  used.
-// peekParams     = Plugin-specific peek parameters passed to the plugin being
-//                  used.
-// postParams     = Plugin-specific post parameters passed to the plugin being
-//                  used.
-func PullApiData( configLocation string, authParams []string, peekParams []string, postParams []string ) []byte {
+// configLocation   = The folder where config YAMLs can be found for the plugin
+//                    that is being used.
+// authParams       = Plugin-specific auth parameters passed to the plugin being
+//                    used.
+// peekParams       = Plugin-specific peek parameters passed to the plugin being
+//                    used.
+// postParams       = Plugin-specific post parameters passed to the plugin being
+//                    used.
+// additionalParams = API-specific parameters for body, header, or querystring.
+//                    Structure:
+//                        {
+//                            "ENDPOINT_NAME": {
+//                                "header": {
+//                                    "KEY1": "VALUE1"
+//                                    ...
+//                                },
+//                                "querystring": {
+//                                    "KEY1": "VALUE1"
+//                                    ...
+//                                },
+//                                "body": {
+//                                    "KEY1": "VALUE1"
+//                                    ...
+//                                },
+//                            },
+//                            ...
+//                        }
+// TODO: Should this be passed as a JSON []byte/string we can just marshal?
+func PullApiData( configLocation string, authParams []string, peekParams []string, postParams []string, additionalParams map[string]map[string]map[string]string ) []byte {
 
     api := generic_structs.ApiRoot{}
 
@@ -211,14 +231,28 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
             }
             if len(ep.Params.QueryString) != 0 || len(ep.Params.Body) != 0 ||
                   len(ep.Params.Header) != 0 {
-                // TODO: Substitution doesn't work here - I should really move
-                //    it to build time/earlier.
                 params = ep.Params
             } else {
                 params = generic_structs.ApiParams{
                     QueryString: make(map[string][]string),
                     Header: make(map[string][]string),
                     Body: make(map[string][]string),
+                }
+            }
+
+            // Merge runtime params.
+            for t, m := range additionalParams[ep.Name] {
+                if t == "header" {
+                    for k, v := range m {
+                        params.Header[k] = append( params.Header[k], v )
+                    }
+                } else if t == "querystring" {
+                    for k, v := range m {
+                        params.QueryString[k] = append( params.QueryString[k],
+                            v )
+                    }
+                } else if t == "body" {
+                    // TODO
                 }
             }
 
@@ -240,6 +274,24 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                                 "{{" + k + "}}", v, -1 )
                             dek[i] = strings.Replace( dek[i],
                                 "{{" + k + "}}", v, -1 )
+                        }
+                        for pk, pv := range params.Header {
+                            for li, item := range pv {
+                                params.Header[pk][li] = strings.Replace( item,
+                                    "{{" + k + "}}", v, -1 )
+                            }
+                        }
+                        for pk, pv := range params.QueryString {
+                            for li, item := range pv {
+                                params.QueryString[pk][li] = strings.Replace(
+                                    item, "{{" + k + "}}", v, -1 )
+                            }
+                        }
+                        for pk, pv := range params.Body {
+                            for li, item := range pv {
+                                params.Body[pk][li] = strings.Replace( item,
+                                    "{{" + k + "}}", v, -1 )
+                            }
                         }
                         ep.Endpoint = strings.Replace( ep.Endpoint,
                             "{{" + k + "}}", v, -1 )
@@ -528,8 +580,8 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
-    //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-    //utils.LogWarn("Response", string(body)+"\n\n", nil)
+    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body
 

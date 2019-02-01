@@ -74,6 +74,7 @@ Development Considerations
 Future Improvements
 ---
 * Appropriate testing.
+* Support other request types beyond GET.
 * Plugin build process and appropraite YAML expansions.
   - Global functions that do not use expansion vars get repeated in every cache file.
 * Allow vars, cbk, dbk, cek, dek, etc to expand from a list so more than one request can go per endpoint.

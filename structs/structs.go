@@ -10,6 +10,10 @@ type ApiRoot struct {
     VarsData map[string][]string `yaml:"vars_data",omitempty`
     Vars map[string]string `yaml:"vars",omitempty`
     Paging map[string]string `yaml:"paging"` // Required
+    Plugin string `yaml:"plugin"` // Required
+    AuthParams []string `yaml:"auth_params"`
+    PagingParams []string `yaml:"paging_params"`
+    PostProcessParams []string `yaml:"post_process_params"`
     Endpoints []ApiEndpoint `yaml:"endpoints"`
 }
 

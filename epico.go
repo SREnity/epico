@@ -31,34 +31,6 @@ import (
 //                  used.
 func PullApiData( configLocation string, pluginLocation string, authParams []string, peekParams []string, postParams []string ) []byte {
 
-    plug, err := plugin.Open(pluginLocation)
-    if err != nil {
-        utils.LogFatal("PullApiData", "Error opening plugin", err)
-        return nil
-    }
-    var PluginAuthFunction = new(*func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest)
-    authSymbol, err := plug.Lookup("PluginAuthFunction")
-    *PluginAuthFunction = authSymbol.(*func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest)
-    if err != nil {
-        utils.LogFatal("PullApiData", "Error looking up plugin Auth function", err)
-        return nil
-    }
-    var PluginPostProcessFunction = new(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string)[]uint8)
-    ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
-    *PluginPostProcessFunction = ppSymbol.(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string)[]uint8)
-    if err != nil {
-        utils.LogFatal("PullApiData", "Error looking up plugin PostProcess function", err)
-        return nil
-    }
-    var PluginPagingPeekFunction = new(*func([]uint8, []string, interface {}, []string)(interface {}, bool))
-    paPSymbol, err := plug.Lookup("PluginPagingPeekFunction")
-    *PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string, interface {}, []string) (interface {}, bool))
-    if err != nil {
-        utils.LogFatal("PullApiData", "Error looking up plugin PagingPeek function", err)
-        return nil
-    }
-
-
     api := generic_structs.ApiRoot{}
 
     responseList := make(map[generic_structs.ComparableApiRequest][]byte)
@@ -84,10 +56,109 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             return nil
         }
 
+        // Handle Params merging - options are:
+        // - overwrite config file with CLI vars
+        // - input CLI params into config file params at designated places (so
+        //   method/keys can be in the config and potentially sensative vars
+        //   passed from CLI)
+        var aps, paps, ppps []string
+
+        if len(api.AuthParms) == 0 {
+            aps = authParams
+        } else if len(authParms) == 0 {
+            aps = api.AuthParams
+        } else {
+            cliCount := 0
+            for i, v := range api.AuthParams {
+                if v == "{{}}" {
+                    api.AuthParams[i] = authParams[cliCount]
+                    cliCount += 1
+                }
+            }
+            aps = api.AuthParams
+        }
+
+        if len(api.PagingParms) == 0 {
+            paps = peekParams
+        } else if len(peekParms) == 0 {
+            paps = api.PagingParams
+        } else {
+            cliCount := 0
+            for i, v := range api.PagingParams {
+                if v == "{{}}" {
+                    api.PagingParams[i] = peekParams[cliCount]
+                    cliCount += 1
+                }
+            }
+            paps = api.PagingParams
+        }
+
+        if len(api.PostProcessParms) == 0 {
+            ppps = postParams
+        } else if len(postParms) == 0 {
+            ppps = api.PostProcessParams
+        } else {
+            cliCount := 0
+            for i, v := range api.PostProcessParams {
+                if v == "{{}}" {
+                    api.PostProcessParams[i] = postParams[cliCount]
+                    cliCount += 1
+                }
+            }
+            ppps = api.PostProcessParams
+        }
+
         rootSettingsData := generic_structs.ApiRequestInheritableSettings{
             Name: api.Name,
             Vars: api.Vars,
             Paging: api.Paging,
+            Plugin: api.Plugin,
+            AuthParams: aps,
+            PagingParams: paps,
+            PostProcessParams: ppps,
+        }
+
+
+        // Load the plugin and functions for this config file.
+        plug, err := plugin.Open(pluginLocation)
+        if err != nil {
+            utils.LogFatal("PullApiData", "Error opening plugin", err)
+            return nil
+        }
+
+        var PluginAuthFunction = new( *func(generic_structs.ApiRequest,
+            []string)generic_structs.ApiRequest )
+        authSymbol, err := plug.Lookup("PluginAuthFunction")
+        *PluginAuthFunction = authSymbol.( *func(generic_structs.ApiRequest,
+            []string)generic_structs.ApiRequest)
+        if err != nil {
+            utils.LogFatal("PullApiData",
+                "Error looking up plugin Auth function", err)
+            return nil
+        }
+
+        var PluginPostProcessFunction = new( *func(
+            map[generic_structs.ComparableApiRequest][]uint8,
+            []map[string]string, []string)[]uint8 )
+        ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
+        *PluginPostProcessFunction = ppSymbol.( *func(
+            map[generic_structs.ComparableApiRequest][]uint8,
+            []map[string]string, []string)[]uint8 )
+        if err != nil {
+            utils.LogFatal("PullApiData",
+                "Error looking up plugin PostProcess function", err)
+            return nil
+        }
+
+        var PluginPagingPeekFunction = new( *func([]uint8, []string,
+            interface {}, []string)(interface {}, bool) )
+        paPSymbol, err := plug.Lookup("PluginPagingPeekFunction")
+        *PluginPagingPeekFunction = paPSymbol.( *func([]uint8, []string,
+            interface {}, []string) (interface {}, bool) )
+        if err != nil {
+            utils.LogFatal("PullApiData",
+                "Error looking up plugin PagingPeek function", err)
+            return nil
         }
 
 
@@ -261,7 +332,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             newApiRequest.Time = time.Now()
             requestValue = append( requestValue,
                 reflect.ValueOf( newApiRequest ),
-                reflect.ValueOf( authParams ) )
+                reflect.ValueOf( rootSettingsData.AuthParams ) )
             finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
             response := runApiRequest( finalRequest[0].Interface().(generic_structs.ApiRequest) )
@@ -311,7 +382,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                 finalPeekValueList, reflect.ValueOf( response ),
                 reflect.ValueOf( responseKeys ),
                 reflect.ValueOf( (*interface{})(nil) ),
-                reflect.ValueOf( peekParams ) )
+                reflect.ValueOf( rootSettingsData.PagingParams ) )
             peekValue := reflect.ValueOf(
                 (**PluginPagingPeekFunction) ).Call( finalPeekValueList )
             pageValue := peekValue[0].Interface()
@@ -355,7 +426,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                 nextApiRequest.Time = time.Now()
                 newRequestValue = append( newRequestValue,
                     reflect.ValueOf( nextApiRequest ),
-                    reflect.ValueOf(authParams) )
+                    reflect.ValueOf( rootSettingsData.AuthParams ) )
                 newFinalRequest := reflect.ValueOf(
                     (**PluginAuthFunction) ).Call( newRequestValue )
                 newResponse := runApiRequest(
@@ -403,7 +474,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
                     finalPeekValueList, reflect.ValueOf( newResponse ),
                     reflect.ValueOf( newResponseKeys ),
                     reflect.ValueOf( oldPageValue ),
-                    reflect.ValueOf( peekParams ) )
+                    reflect.ValueOf( rootSettingsData.PagingParams ) )
                 peekValue := reflect.ValueOf(
                     (**PluginPagingPeekFunction) ).Call(
                     finalPeekValueList )
@@ -422,7 +493,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
     var finalResponseValueList []reflect.Value
     finalResponseValueList = append( finalResponseValueList,
         reflect.ValueOf( responseList ), reflect.ValueOf( jsonKeys ),
-        reflect.ValueOf( postParams ) )
+        reflect.ValueOf( rootSettingsData.PostProcessParams ) )
     finalResponse := reflect.ValueOf( (**PluginPostProcessFunction) ).Call(
         finalResponseValueList )
 

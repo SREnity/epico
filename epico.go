@@ -130,6 +130,7 @@ func PullApiData( configLocation string, pluginLocation string, authParams []str
             return nil
         }
 
+        // We only take the post processing from the first YAML we pull.
         if *PluginPostProcessFunction == nil {
             ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
             *PluginPostProcessFunction = ppSymbol.( *func(

@@ -580,8 +580,8 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
-    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-    utils.LogWarn("Response", string(body)+"\n\n", nil)
+    //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    //utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body
 

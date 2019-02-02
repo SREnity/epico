@@ -6,6 +6,7 @@ import (
     "encoding/json"
     "io/ioutil"
     "log"
+    "net/url"
 //    "os"
     "reflect"
     "strconv"
@@ -17,6 +18,7 @@ import (
     "github.com/satori/go.uuid"
 
     "golang.org/x/oauth2/jwt"
+    "golang.org/x/oauth2/clientcredentials"
 )
 
 
@@ -504,6 +506,45 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
     return apiRequest
 }
 
+
+// Auth function for Oauth 2 2-legged implementations.  Takes Oauth params and
+//    preps the http client attached to the ApiRequest.
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = JWT params in the order of:
+//              [0] => client ID
+//              [1] => client secret 
+//              [2] => scopes (csv)
+//              [3] => token url
+//              [4] => endpoint params (string with ":" key/value separator and
+//                     "," between entries => e.g. x:y,x:z,a:b)
+func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+    values := url.Values{}
+    for _, v := range strings.Split( authParams[4], "," ) {
+        colonSplit := strings.Index( v, ":" )
+        if colonSplit < 0 {
+            LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
+        }
+        values.Add( v[:colonSplit], v[colonSplit+1:] )
+    }
+    cfg := &clientcredentials.Config{
+        ClientID: authParams[0],
+        ClientSecret: authParams[1],
+        Scopes: strings.Split( authParams[2], "," ),
+        TokenURL: authParams[3],
+        EndpointParams: values,
+    }
+    // TODO: No blanks.
+    //if cfg.TokenURL == "" {
+    //}
+
+    ctx := context.Background()
+    token, _ := cfg.Token(ctx)
+    log.Printf("Token: %V\nErr: %v\n\n", token )
+    apiRequest.Client = cfg.Client(ctx)
+
+    return apiRequest
+}
 
 // Auth function for JWT implementations.  Takes JWT params and preps the http
 //    client attached to the ApiRequest.

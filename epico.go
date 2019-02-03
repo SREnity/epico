@@ -580,13 +580,13 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
         return nil
     }
-    //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-    //for k, v := range apiRequest.FullRequest.Header {
-    //    for _, rv := range v {
-    //        utils.LogWarn("Header", k + ":" + rv +"\n", nil)
-    //    }
-    //}
-    //utils.LogWarn("Response", string(body)+"\n\n", nil)
+    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    for k, v := range resp.Header {
+        for _, rv := range v {
+            utils.LogWarn("Response Header", k + ":" + rv +"\n", nil)
+        }
+    }
+    utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body
 

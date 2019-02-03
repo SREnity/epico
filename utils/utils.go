@@ -461,19 +461,8 @@ func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gen
 }
 
 
-// Auth function for simple Token auth implementations.  Takes a token and
-//    constructs the header.
-// Vars:
-// apiRequest = The ApiRequest to be used.
-// authParams = Auth params:
-//              [0] => token
-func TokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
-
-    apiRequest.FullRequest.Header.Add("Authorization", "Token token=" +
-        authParams[0])
-
-    return apiRequest
-}
+// Removed in favor of simplicity - just use CustomHeaderAuth
+//func TokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest
 
 
 // Auth function for custom querystring auth implementations.  Takes an

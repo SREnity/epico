@@ -581,6 +581,11 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
         return nil
     }
     //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    //for k, v := range apiRequest.FullRequest.Header {
+    //    for _, rv := range v {
+    //        utils.LogWarn("Header", k + ":" + rv +"\n", nil)
+    //    }
+    //}
     //utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body

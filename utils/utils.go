@@ -507,6 +507,33 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 }
 
 
+// Auth function for custom header auth implementations that also require basic
+//    auth.  Takes the basic auth keys username/password and an alternating
+//    list of keys/values and constructs the header. 
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = Auth params in any quantity, alternating key then value:
+//              [0] => username 
+//              [1] => password 
+//              [x] => header key
+//              [x+1] => header value
+func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    apiRequest = BasicAuth( apiRequest, authParams[:2] )
+    authParams = authParams[2:]
+
+    if len(authParams) % 2 != 0 {
+        LogFatal("CustomHeaderAuth",
+            "Invalid header params - must have a value for every key.", nil)
+    }
+    for i := 0; i < len(authParams) - 1; i++ {
+        apiRequest.FullRequest.Header.Add(authParams[i], authParams[i+1])
+    }
+
+    return apiRequest
+}
+
+
 // Auth function for Oauth 2 2-legged implementations.  Takes Oauth params and
 //    preps the http client attached to the ApiRequest.
 // Vars:

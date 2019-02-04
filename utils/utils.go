@@ -408,7 +408,8 @@ func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue i
         }
     }
     // If the per page value is greater than total count, no more pages.
-    if totalCountValue.(float64) < perPageValue.(float64) {
+    if totalCountValue == nil || perPageValue == nil ||
+          totalCountValue.(float64) < perPageValue.(float64) {
         return interface{}(nil), false
     }
 
@@ -520,10 +521,10 @@ func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []
     }
 
     q := apiRequest.FullRequest.URL.Query()
-    for i := 0; i < len(authParams) - 1; i = i+2 {
+    for i := 0; i < len(authParams) - 1; i += 2 {
         // Don't duplicate keys that are the same.
         found := false
-        for _, v := range q.Get( authParams[i] ) {
+        for _, v := range q[authParams[i]] {
             if v == authParams[i+1] {
                 found = true
             }
@@ -551,10 +552,10 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
         LogFatal("CustomHeaderAuth",
             "Invalid header params - must have a value for every key.", nil)
     }
-    for i := 0; i < len(authParams) - 1; i = i+2 {
+    for i := 0; i < len(authParams) - 1; i += 2 {
         // Don't duplicate keys that are the same.
         found := false
-        for _, v := range apiRequest.FullRequest.Header.Get( authParams[i] ) {
+        for _, v := range apiRequest.FullRequest.Header[authParams[i]] {
             if v == authParams[i+1] {
                 found = true
             }
@@ -605,16 +606,7 @@ func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []strin
         if colonSplit < 0 {
             LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
         }
-        // Don't duplicate keys that are the same.
-        found := false
-        for _, cv := range v[:colonSplit] {
-            if cv == v[colonSplit+1:] {
-                found = true
-            }
-        }
-        if !found {
-            values.Add( v[:colonSplit], v[colonSplit+1:] )
-        }
+        values.Add( v[:colonSplit], v[colonSplit+1:] )
     }
     cfg := &clientcredentials.Config{
         ClientID: authParams[0],
@@ -623,9 +615,6 @@ func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []strin
         TokenURL: authParams[3],
         EndpointParams: values,
     }
-    // TODO: No blanks.
-    //if cfg.TokenURL == "" {
-    //}
 
     ctx := context.Background()
     token, _ := cfg.Token(ctx)

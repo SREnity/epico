@@ -597,14 +597,14 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) ([]byte, []byte) {
         utils.LogFatal("runApiRequest", "Error reading request headers", err)
     }
 
-    for k, v := range apiRequest.FullRequest.Header {
-        for _, rv := range v {
-            utils.LogWarn("Request Headers", k + ": " + rv, nil)
-        }
-    }
-    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-    utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
-    utils.LogWarn("Response", string(body[:100])+"\n\n", nil)
+    //for k, v := range apiRequest.FullRequest.Header {
+    //    for _, rv := range v {
+    //        utils.LogWarn("Request Headers", k + ": " + rv, nil)
+    //    }
+    //}
+    //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    //utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
+    //utils.LogWarn("Response", string(body[:100])+"\n\n", nil)
 
     return body, headers
 

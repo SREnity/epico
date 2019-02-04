@@ -9,6 +9,7 @@ import (
     "net/url"
 //    "os"
     "reflect"
+    "regexp"
     "strconv"
     "strings"
 
@@ -288,6 +289,44 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
 }
 
 
+// Peeks at a standard JSON response for paging indicators.
+// Vars:
+// response     = The JSON response in []byte form.
+// responseKeys = The split list of keys to find the paging value.
+// oldPageValue = The previous page value.
+// peekParams   = Params specific to this function - expecting:
+//                [0] => Valid regex with paging param located in the first
+//                    subexpression group in ()s ex: <([^>]*)>; rel=\"next\"
+func RegexJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+
+    re, err := regexp.Compile( peekParams[0] )
+    if err != nil {
+        LogFatal( "RegexJsonPagingPeek", "Invalid regex provided in YAML", err )
+    }
+    pagingValue, _ := DefaultJsonPagingPeek( response, responseKeys,
+        oldPageValue, peekParams )
+
+    switch reflect.TypeOf( pagingValue ).String() {
+        case "[]interface {}":
+            for _, v := range pagingValue.([]interface{}) {
+                // TODO: More robust handling here if we don't have a string.
+                submatches := re.FindStringSubmatch(v.(string))
+                if len(submatches) > 1 {
+                    return interface{}(submatches[1]), true
+                }
+            }
+        default: // pagingValue is likely string or nil
+            // TODO: More robust handling here if we don't have a string.
+            submatches := re.FindStringSubmatch(pagingValue.(string))
+            if len(submatches) > 1 {
+                return interface{}(submatches[1]), true
+            }
+    }
+
+    return interface{}(nil), false
+}
+
+
 // Peeks at a standard JSON response for paging indicators that need to be
 //    calculated.
 // Vars:
@@ -481,8 +520,17 @@ func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []
     }
 
     q := apiRequest.FullRequest.URL.Query()
-    for i := 0; i < len(authParams) - 1; i++ {
-        q.Set( authParams[i], authParams[i+1] )
+    for i := 0; i < len(authParams) - 1; i = i+2 {
+        // Don't duplicate keys that are the same.
+        found := false
+        for _, v := range q.Get( authParams[i] ) {
+            if v == authParams[i+1] {
+                found = true
+            }
+        }
+        if !found {
+            q.Add( authParams[i], authParams[i+1] )
+        }
     }
     apiRequest.FullRequest.URL.RawQuery = q.Encode()
 
@@ -503,8 +551,17 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
         LogFatal("CustomHeaderAuth",
             "Invalid header params - must have a value for every key.", nil)
     }
-    for i := 0; i < len(authParams) - 1; i++ {
-        apiRequest.FullRequest.Header.Add(authParams[i], authParams[i+1])
+    for i := 0; i < len(authParams) - 1; i = i+2 {
+        // Don't duplicate keys that are the same.
+        found := false
+        for _, v := range apiRequest.FullRequest.Header.Get( authParams[i] ) {
+            if v == authParams[i+1] {
+                found = true
+            }
+        }
+        if !found {
+            apiRequest.FullRequest.Header.Add( authParams[i], authParams[i+1] )
+        }
     }
 
     return apiRequest
@@ -524,15 +581,7 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
 
     apiRequest = BasicAuth( apiRequest, authParams[:2] )
-    authParams = authParams[2:]
-
-    if len(authParams) % 2 != 0 {
-        LogFatal("CustomHeaderAuth",
-            "Invalid header params - must have a value for every key.", nil)
-    }
-    for i := 0; i < len(authParams) - 1; i++ {
-        apiRequest.FullRequest.Header.Add(authParams[i], authParams[i+1])
-    }
+    apiRequest = CustomHeaderAuth( apiRequest, authParams[2:] )
 
     return apiRequest
 }
@@ -556,7 +605,16 @@ func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []strin
         if colonSplit < 0 {
             LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
         }
-        values.Add( v[:colonSplit], v[colonSplit+1:] )
+        // Don't duplicate keys that are the same.
+        found := false
+        for _, cv := range v[:colonSplit] {
+            if cv == v[colonSplit+1:] {
+                found = true
+            }
+        }
+        if !found {
+            values.Add( v[:colonSplit], v[colonSplit+1:] )
+        }
     }
     cfg := &clientcredentials.Config{
         ClientID: authParams[0],

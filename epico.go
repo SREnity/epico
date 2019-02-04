@@ -1,6 +1,7 @@
 package epico
 
 import (
+    "encoding/json"
     "io/ioutil"
     "net/http"
     "plugin"
@@ -379,7 +380,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 reflect.ValueOf( rootSettingsData.AuthParams ) )
             finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
                 requestValue )
-            response := runApiRequest( finalRequest[0].Interface().(generic_structs.ApiRequest) )
+            response, responseHeaders := runApiRequest(
+                finalRequest[0].Interface().(generic_structs.ApiRequest) )
             comRequest := newApiRequest.ToComparableApiRequest()
             // If we've done a request to this endpoint before, append the
             //    result - otherwise, create a new key in our response Map.
@@ -421,10 +423,15 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
             }
 
             // Call our peek function to see if we have a paging value.
+            var pagingData reflect.Value
+            if newApiRequest.Settings.Paging["location_from"] == "header" {
+                pagingData = reflect.ValueOf( responseHeaders )
+            } else { // Default: response body.
+                pagingData = reflect.ValueOf( response )
+            }
             var finalPeekValueList []reflect.Value
             finalPeekValueList = append(
-                finalPeekValueList, reflect.ValueOf( response ),
-                reflect.ValueOf( responseKeys ),
+                finalPeekValueList, pagingData, reflect.ValueOf( responseKeys ),
                 reflect.ValueOf( (*interface{})(nil) ),
                 reflect.ValueOf( rootSettingsData.PagingParams ) )
             peekValue := reflect.ValueOf(
@@ -473,7 +480,7 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                     reflect.ValueOf( rootSettingsData.AuthParams ) )
                 newFinalRequest := reflect.ValueOf(
                     (**PluginAuthFunction) ).Call( newRequestValue )
-                newResponse := runApiRequest(
+                newResponse, newResponseHeaders := runApiRequest(
                     newFinalRequest[0].Interface().(generic_structs.ApiRequest) )
 
                 comRequest = nextApiRequest.ToComparableApiRequest()
@@ -513,9 +520,16 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 }
 
                 // Call our peek function to see if we have a paging value.
+                var pagingData reflect.Value
+                if newApiRequest.Settings.Paging["location_from"] == "header" {
+                    pagingData = reflect.ValueOf( newResponseHeaders )
+                } else { // Default: response body.
+                    pagingData = reflect.ValueOf( newResponse )
+                }
+
                 var finalPeekValueList []reflect.Value
                 finalPeekValueList = append(
-                    finalPeekValueList, reflect.ValueOf( newResponse ),
+                    finalPeekValueList, pagingData,
                     reflect.ValueOf( newResponseKeys ),
                     reflect.ValueOf( oldPageValue ),
                     reflect.ValueOf( rootSettingsData.PagingParams ) )
@@ -557,7 +571,7 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
 }
 
 
-func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
+func runApiRequest( apiRequest generic_structs.ApiRequest ) ([]byte, []byte) {
 
     var client *http.Client
     if apiRequest.Client == nil {
@@ -565,29 +579,33 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) []byte {
     } else {
         client = apiRequest.Client
     }
-    resp, err := client.Do(apiRequest.FullRequest)
+    resp, err := client.Do( apiRequest.FullRequest )
     if err != nil {
         utils.LogFatal("runApiRequest", "Error running the request", err)
-        return nil
     }
     defer resp.Body.Close()
     // TODO: Handle failed connections better / handle retry? Golang "Context"?
     // i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
     // [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
 
-    body, err := ioutil.ReadAll(resp.Body)
+    body, err := ioutil.ReadAll( resp.Body )
     if err != nil {
         utils.LogFatal("runApiRequest", "Error reading request body", err)
-        return nil
     }
-    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-    for k, v := range resp.Header {
+    headers, err := json.Marshal( resp.Header )
+    if err != nil {
+        utils.LogFatal("runApiRequest", "Error reading request headers", err)
+    }
+
+    for k, v := range apiRequest.FullRequest.Header {
         for _, rv := range v {
-            utils.LogWarn("Response Header", k + ":" + rv +"\n", nil)
+            utils.LogWarn("Request Headers", k + ": " + rv, nil)
         }
     }
-    utils.LogWarn("Response", string(body)+"\n\n", nil)
+    utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
+    utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
+    utils.LogWarn("Response", string(body[:100])+"\n\n", nil)
 
-    return body
+    return body, headers
 
 }

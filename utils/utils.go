@@ -6,6 +6,7 @@ import (
     "encoding/json"
     "io/ioutil"
     "log"
+    "net/http"
     "net/url"
 //    "os"
     "reflect"
@@ -591,11 +592,82 @@ func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams
 }
 
 
+// Auth function for session auth implementations.  Takes provided params and
+//    retrieves the session token from the designated key then updates the
+//    header of the ApiRequest.
+// Vars:
+// apiRequest = The ApiRequest to be used.
+// authParams = Session params in the order of:
+//              [0] => Where the token is in the response e.g. "data.token" 
+//              [1] => Custom header key e.g. "Authorization" or "Auth-Token"
+//              [2] => Custom header pre-token value e.g. "token "
+//              [3] => Session token URL
+//              [x] => Session key
+//              [x+1] => Session value
+func SessionTokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+
+    if len(authParams[4:]) % 2 != 0 {
+        LogFatal("SessionTokenAuth",
+            "Invalid header params - must have a value for every key.", nil)
+    }
+
+    bodyMap := map[string]string{}
+
+    if len(authParams) > 4 {
+        for i := 4; i < len(authParams) - 1; i += 2 {
+            bodyMap[authParams[i]] = authParams[i+1]
+        }
+    }
+
+    jsonString, err := json.Marshal(bodyMap)
+    if err != nil {
+        LogFatal("SessionTokenAuth", "Error marshaling JSON", err)
+    }
+
+    // TODO: Break this out to allow URL encoded session function as well
+    resp, err := http.Post( authParams[3], "application/json", bytes.NewBuffer(jsonString) )
+    if err != nil {
+        LogFatal("SessionTokenAuth", "Error running the session POST request",
+            err)
+    }
+    defer resp.Body.Close()
+    // TODO: Handle failed connections better / handle retry? Golang "Context"?
+    // i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
+    // [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
+
+    body, err := ioutil.ReadAll( resp.Body )
+    if err != nil {
+        LogFatal("SessionTokenAuth", "Error reading request body", err)
+    }
+
+    var jsonResponseMap interface{}
+    err = json.Unmarshal(body, &jsonResponseMap)
+    if err != nil {
+        LogFatal("SessionTokenAuth", "Unable to unmarshal session JSON",
+            err)
+    }
+
+    var tokenValue string
+    for _, v := range strings.Split( authParams[0], "." ) {
+        if reflect.TypeOf(jsonResponseMap.(map[string]interface{})[v]).String() == "string" {
+            tokenValue = jsonResponseMap.(map[string]interface{})[v].(string)
+        } else {
+            jsonResponseMap = jsonResponseMap.(map[string]interface{})[v]
+        }
+    }
+
+    customParams := authParams[1:3]
+    customParams[1] = customParams[1] + tokenValue
+
+    return CustomHeaderAuth( apiRequest, customParams )
+}
+
+
 // Auth function for Oauth 2 2-legged implementations.  Takes Oauth params and
 //    preps the http client attached to the ApiRequest.
 // Vars:
 // apiRequest = The ApiRequest to be used.
-// authParams = JWT params in the order of:
+// authParams = Oauth2 params in the order of:
 //              [0] => client ID
 //              [1] => client secret 
 //              [2] => scopes (csv)
@@ -620,8 +692,6 @@ func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []strin
     }
 
     ctx := context.Background()
-    token, _ := cfg.Token(ctx)
-    log.Printf("Token: %V\nErr: %v\n\n", token )
     apiRequest.Client = cfg.Client(ctx)
 
     return apiRequest

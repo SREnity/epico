@@ -382,7 +382,7 @@ func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue i
     }
     // New page value is nil.
     // Ensure we got the key
-    if _, ok := responseMap[responseKeys[0]]; ok {}
+    //if _, ok := responseMap[responseKeys[0]]; ok {}
 
     var pageValue, perPageValue, totalCountValue interface{}
     // Loop through the key list and set pageValue to each successive key to
@@ -407,9 +407,10 @@ func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue i
             perPageValue = perPageValue.(map[string]interface{})[v]
         }
     }
-    // If the per page value is greater than total count, no more pages.
+
+    // If the per page value is >= total count, no more pages.
     if totalCountValue == nil || perPageValue == nil ||
-          totalCountValue.(float64) < perPageValue.(float64) {
+          totalCountValue.(float64) <= perPageValue.(float64) {
         return interface{}(nil), false
     }
 
@@ -425,6 +426,8 @@ func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue i
     if pageValue != nil && perPageValue != nil && totalCountValue != nil {
         if pageValue.(float64)*perPageValue.(float64) < totalCountValue.(float64) {
             pageValue = pageValue.(float64) + 1
+        } else { // If we're over total count or equal, then it's done.
+            return interface{}(nil), false
         }
     }
 

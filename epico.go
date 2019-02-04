@@ -604,7 +604,7 @@ func runApiRequest( apiRequest generic_structs.ApiRequest ) ([]byte, []byte) {
     //}
     //utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
     //utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
-    //utils.LogWarn("Response", string(body[:100])+"\n\n", nil)
+    //utils.LogWarn("Response", string(body)+"\n\n", nil)
 
     return body, headers
 

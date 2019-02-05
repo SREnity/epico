@@ -56,7 +56,6 @@ func XmlResponseProcess( apiResponse []byte ) []byte {
 // rawYaml  = raw YAML []byte that will be tranformed into a slice of []bytes
 // varsData = vars data to be expanded
 func PopulateYamlSlice( rawYaml string, varsData map[string][]string ) [][]byte {
-    log.Printf("%v\n\n%v\n\n", rawYaml, varsData)
     indexes := make([]string, len(varsData)) // These are keys that need to be
     depth := 0                               //    expanded
     varValues := make(map[string]string, len(varsData)) // Actual sub values

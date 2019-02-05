@@ -72,8 +72,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
     for _, f := range files {
         rawYaml, err := ioutil.ReadFile(configLocation + f.Name())
         if err != nil {
-            utils.LogFatal("PullApiData", "Error reading YAML API defnition", err)
-            return nil
+            utils.LogFatal("PullApiData", "Error reading YAML API defnition",
+                err)
         }
 
         err = yaml.Unmarshal([]byte(rawYaml), &api)
@@ -102,12 +102,12 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
             }
             // Handle Params merging - options are:
             // - overwrite config file with CLI vars
-            // - input CLI params into config file params at designated places (so
-            //   method/keys can be in the config and potentially sensative vars
-            //   passed from CLI)
+            // - input CLI params into config file params at designated places
+            //   (so method/keys can be in the config and potentially sensative
+            //   vars passed from CLI)
             // Note: post processing is done across ALL YAMLs, and thus must be
-            //    independent of any particular API.  That parameter is just passed
-            //    at runtime.
+            //    independent of any particular API.  That parameter is just
+            //    passed at runtime.
             var aps, paps []string
 
             if len(api.AuthParams) == 0 {
@@ -197,8 +197,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 var vars, paging map[string]string
                 var params generic_structs.ApiParams
 
-                // Pull substitution vars first so we can substitute while saving
-                //    other variables
+                // Pull substitution vars first so we can substitute while
+                //    saving other variables
                 if len(rootSettingsData.Vars) != 0 {
                     vars = rootSettingsData.Vars
                 } else {
@@ -242,7 +242,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 } else {
                     dek = []string(nil)
                 }
-                if len(ep.Params.QueryString) != 0 || len(ep.Params.Body) != 0 ||
+                if len(ep.Params.QueryString) != 0 ||
+                      len(ep.Params.Body) != 0 ||
                       len(ep.Params.Header) != 0 {
                     params = ep.Params
                 } else {
@@ -261,8 +262,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                         }
                     } else if t == "querystring" {
                         for k, v := range m {
-                            params.QueryString[k] = append( params.QueryString[k],
-                                v )
+                            params.QueryString[k] = append(
+                                params.QueryString[k], v )
                         }
                     } else if t == "body" {
                         // TODO
@@ -276,7 +277,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                             utils.LogFatal( "PullApiData",
                                 "Current and desired key lists must be the same length.", nil )
                         } else {
-                            name = strings.Replace( name, "{{" + k + "}}", v, -1 )
+                            name = strings.Replace( name, "{{" + k + "}}", v,
+                                -1 )
                             for i, _ := range cbk {
                                 cbk[i] = strings.Replace( cbk[i],
                                     "{{" + k + "}}", v, -1 )
@@ -289,37 +291,40 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                             }
                             for pk, pv := range params.Header {
                                 for li, item := range pv {
-                                    params.Header[pk][li] = strings.Replace( item,
+                                    params.Header[pk][li] =
+                                        strings.Replace( item,
                                         "{{" + k + "}}", v, -1 )
                                 }
                             }
                             for pk, pv := range params.QueryString {
                                 for li, item := range pv {
-                                    params.QueryString[pk][li] = strings.Replace(
+                                    params.QueryString[pk][li] =
+                                        strings.Replace(
                                         item, "{{" + k + "}}", v, -1 )
                                 }
                             }
                             for pk, pv := range params.Body {
                                 for li, item := range pv {
-                                    params.Body[pk][li] = strings.Replace( item,
-                                        "{{" + k + "}}", v, -1 )
+                                    params.Body[pk][li] = strings.Replace(
+                                        item, "{{" + k + "}}", v, -1 )
                                 }
                             }
                             ep.Endpoint = strings.Replace( ep.Endpoint,
                                 "{{" + k + "}}", v, -1 )
-                            ep.Documentation = strings.Replace( ep.Documentation,
-                                "{{" + k + "}}", v, -1 )
+                            ep.Documentation = strings.Replace(
+                                ep.Documentation, "{{" + k + "}}", v, -1 )
                         }
                     }
                 }
 
                 tempRequest, err := http.NewRequest("GET", ep.Endpoint, nil)
                 if err != nil {
-                    utils.LogFatal("PullApiData", "Error making API request", err)
+                    utils.LogFatal("PullApiData", "Error making API request",
+                        err)
                 }
 
-                // Create the endpoint key set for iterating on later in the post
-                //    process.
+                // Create the endpoint key set for iterating on later in the
+                //    post process.
                 newKeySet := map[string]string{
                          "api_call_name": ep.Name,
                     }
@@ -353,8 +358,9 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 newApiRequest := generic_structs.ApiRequest{
                     Settings: generic_structs.ApiRequestInheritableSettings{
                         Name: name,
-                        // Expandable vars are defined at the root only, and pulled
-                        //    from cach file then combined with static vars from EP.
+                        // Expandable vars are defined at the root only, and
+                        //    pulled from cach file then combined with static
+                        //    vars from EP.
                         Vars: vars,
                         Paging: paging,
                     },
@@ -371,9 +377,9 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 h := newApiRequest.FullRequest.Header
                 for k, v := range newApiRequest.Params.Header {
                     if len(v) > 0 {
-                        h.Add(k, v[0]) // TODO: Handle multiple passed params here.
-                    }                  //    in the event we want to allow multiple
-                }                      //    calls to the endpoint with different
+                        h.Add(k, v[0]) // TODO: Handle multiple passed here in
+                    }                  //    the event we want to allow multiple
+                }                      //    calls to the endpoint with diff
                 for k, v := range newApiRequest.Params.QueryString { // params.
                     if len(v) > 0 {
                         q.Add(k, v[0]) // TODO: Same.
@@ -403,19 +409,21 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                     responseList[comRequest] = append(
                         make([]byte, 0), response... )
                 }
-                // Add the first response to our new response list (map).  Now check
-                // if we need to page.
+                // Add the first response to our new response list (map).  Now
+                //    check if we need to page.
 
                 // Here we handle multipart keys - response.key.key1 etc.
                 var responseKeys []string
                 if newApiRequest.Settings.Paging["indicator_from_structure"] ==
                       "calculated" {
-                    // If this is a calculated paging var, then it should be a list
-                    //    with the results per page first and total results second.
-                    //    Since the multipart keys could be of different lengths, we
-                    //    store where the split is to break it up in the peek func.
+                    // If this is a calculated paging var, then it should be a
+                    //    list with the results per page first and total
+                    //    results second. Since the multipart keys could be of
+                    //    different lengths, we store where the split is to
+                    //    break it up in the peek func.
                     separateKeys := strings.Split(
-                        newApiRequest.Settings.Paging["indicator_from_field"], ",")
+                        newApiRequest.Settings.Paging["indicator_from_field"],
+                        ",")
                     if len(separateKeys) != 3 {
                         utils.LogFatal("PullApiData",
                             "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
@@ -430,7 +438,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                     }
                 } else {
                     responseKeys = strings.Split(
-                        newApiRequest.Settings.Paging["indicator_from_field"], ".")
+                        newApiRequest.Settings.Paging["indicator_from_field"],
+                        ".")
                 }
 
                 // Call our peek function to see if we have a paging value.
@@ -442,8 +451,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                 }
                 var finalPeekValueList []reflect.Value
                 finalPeekValueList = append(
-                    finalPeekValueList, pagingData, reflect.ValueOf( responseKeys ),
-                    reflect.ValueOf( (*interface{})(nil) ),
+                    finalPeekValueList, pagingData, reflect.ValueOf(
+                    responseKeys ), reflect.ValueOf( (*interface{})(nil) ),
                     reflect.ValueOf( rootSettingsData.PagingParams ) )
                 peekValue := reflect.ValueOf(
                     (**PluginPagingPeekFunction) ).Call( finalPeekValueList )
@@ -471,8 +480,8 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                             q := nextApiRequest.FullRequest.URL.Query()
                             q.Set( nextApiRequest.Settings.Paging[
                                 "indicator_to_field"],
-                                strconv.FormatFloat( oldPageValue.(float64), 'f',
-                                -1, 64 ) )
+                                strconv.FormatFloat( oldPageValue.(float64),
+                                'f', -1, 64 ) )
                             nextApiRequest.FullRequest.URL.RawQuery = q.Encode()
                         } else {
                             // By default they just give us a param back.

@@ -17,7 +17,6 @@ import (
     generic_structs "github.com/SREnity/epico/structs"
 
     xj "github.com/basgys/goxml2json"
-    "github.com/satori/go.uuid"
 
     "golang.org/x/oauth2/jwt"
     "golang.org/x/oauth2/clientcredentials"
@@ -51,42 +50,32 @@ func XmlResponseProcess( apiResponse []byte ) []byte {
 }
 
 
-// This function is used during build-time of a plugin to expand out the
-//    shorthand YAMLs with expansion vars into a series of individual, expanded
-//    YAML files for consumption by Epico.
+// Used to expand out the shorthand YAMLs with expansion vars into a series of
+//    individual, expanded YAML []byte's for consumption by Epico.
 // Args:
-// configDir =
-// rawYaml  =
-// apiType  =
-// varsData     =
-// TODO: Fix assumptions and variables here. configDir => yamlDir, no apiType, should overwrite files in dir... 
-func PopulateYamlCache( configDir string, rawYaml string, apiType string, varsData map[string][]string ) {
-
-    // TODO: This should delete everything in the dir instead of read.
-//    files, err := ioutil.ReadDir(configDir)
-//    if err != nil {
-//        fmt.Printf("Unable to read cache directory: %v\nCreating...\n", err)
-//        if _, err1 := os.Stat(configDir); os.IsNotExist(err1) {
-//            err1 = os.MkdirAll(configDir, 0755)
-//            if err1 != nil {
-//                fmt.Printf("Unable to create cache directory: %v\n", err)
-//            }
-//        }
-//    }
-
-    indexes := make([]string, len(varsData))
-    depth := 0
-    varValues := make(map[string]string, len(varsData))
+// rawYaml  = raw YAML []byte that will be tranformed into a slice of []bytes
+// varsData = vars data to be expanded
+func PopulateYamlSlice( rawYaml string, varsData map[string][]string ) [][]byte {
+    log.Printf("%v\n\n%v\n\n", rawYaml, varsData)
+    indexes := make([]string, len(varsData)) // These are keys that need to be
+    depth := 0                               //    expanded
+    varValues := make(map[string]string, len(varsData)) // Actual sub values
     index := 0
     for k, _ := range varsData {
+        // Load our keys into the indexes slice and instantiate varValues maps
         indexes[index] = k
         index += 1
         varValues[k] = ""
     }
 
+    var returnSlice [][]byte
     for i, _ := range varsData[indexes[depth]] {
-        populateCacheRecursion( configDir, rawYaml, varsData, indexes, depth, i, varValues )
+        // Don't need to append here because returnSlice is being passed and
+        //    builds upon the old slice.
+        returnSlice = populateSliceRecursion( rawYaml, varsData, indexes, depth, i, varValues, returnSlice )
     }
+
+    return returnSlice
 }
 
 
@@ -729,24 +718,28 @@ func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gener
 // Used at build-time for plugins to actually expand the variables in our new
 //    YAML files.
 // Vars:
-// configDir = Directory to write new YAML files to.
 // rawYaml   = Raw YAML we are expanding.
-// varsData  = The vars we are expanding.
+// varsData  = The vars data we are expanding.
 // indexes   = List of variables being expanded.
 // depth     = Count of recursion depth.
-// listIndex = Count of variable being expanded.
+// listIndex = Count of variable being expanded from the []string of vars.
 // varValues = Values being replaced. 
-// TODO: Hunt down this logic and fix description above?
-func populateCacheRecursion( configDir string, rawYaml string, varsData map[string][]string, indexes []string, depth int, listIndex int, varValues map[string]string ) {
-    if depth == len(indexes) - 1 {
+func populateSliceRecursion( rawYaml string, varsData map[string][]string, indexes []string, depth int, listIndex int, varValues map[string]string, returnSlice [][]byte ) [][]byte {
+    if depth == len(indexes) - 1 { // If we're at the end of the keys list.
         varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
-        createCacheFile( configDir, rawYaml, varValues )
-    } else {
+        newYaml := rawYaml
+        for k, v := range varValues {
+            newYaml = strings.Replace( newYaml, "{{" + k + "}}", v, -1 )
+            returnSlice = append( returnSlice, []byte(newYaml) )
+        }
+    } else { // If we have more keys to go.
         varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
         for i, _ := range varsData[indexes[depth + 1]] {
-            populateCacheRecursion( configDir, rawYaml, varsData, indexes, depth + 1, i, varValues )
+            returnSlice = append( returnSlice, populateSliceRecursion( rawYaml, varsData, indexes, depth + 1, i, varValues, returnSlice ) ... )
         }
     }
+
+    return returnSlice
 }
 
 
@@ -755,23 +748,23 @@ func populateCacheRecursion( configDir string, rawYaml string, varsData map[stri
 // configDir    = Directory to write new YAML files to.
 // originalYaml = Raw YAML we are expanding.
 // varValues    = The vars we are expanding.
-func createCacheFile( configDir string, originalYaml string, varValues map[string]string ) {
-    newYaml := originalYaml
-    for k, v := range varValues {
-        newYaml = strings.Replace( newYaml, "{{" + k + "}}", v, -1 )
-    }
-
-    newUuid, err := uuid.NewV4()
-    if err != nil {
-        LogFatal("createCacheFile", "Unable to generate new UUID", err)
-    }
-
-    err = ioutil.WriteFile(configDir + newUuid.String() + ".yaml", []byte(newYaml), 0755)
-    if err != nil {
-        LogFatal("createCacheFile", "Error writing YAML API defnition", err)
-    }
-
-}
+//func createCacheFile( configDir string, originalYaml string, varValues map[string]string ) {
+//    newYaml := originalYaml
+//    for k, v := range varValues {
+//        newYaml = strings.Replace( newYaml, "{{" + k + "}}", v, -1 )
+//    }
+//
+//    newUuid, err := uuid.NewV4()
+//    if err != nil {
+//        LogFatal("createCacheFile", "Unable to generate new UUID", err)
+//    }
+//
+//    err = ioutil.WriteFile(configDir + newUuid.String() + ".yaml", []byte(newYaml), 0755)
+//    if err != nil {
+//        LogFatal("createCacheFile", "Error writing YAML API defnition", err)
+//    }
+//
+//}
 
 
 // Recursively drill down into JSON to find the value of a specific key set

@@ -1,12 +1,11 @@
-<img src="https://github.com/SREnity/epico/raw/master/assets/epico.png" width="100"><h1>Epico<h1>
+# Epico
+<img src="https://github.com/SREnity/epico/raw/master/assets/epico.png" width="100">
 
 
-About
----
+## About
 Epico aims to make API ingestion easy.  By providing a common framework to manage API calls and plugins to handle any API-specific logic - Epico aims to make API ingestion to be as simple as creating a YAML representing the endpoints you want to ingest. 
 
-Example Usage
----
+## Example Usage
 ```
 package main
 
@@ -52,16 +51,14 @@ func responseFunc( answer []byte ) {
 ```
 
 
-Code Layout
----
+## Code Layout
 `utils`: Utilities used by plugins for common API tasks such managing/parsing JSON/XML.  
 `structs`: Basic structs representing common connection characteristics - ApiRequest, ApiResponse, etc.  
 `signers`: Signers used by various APIs for security/auth.  
 `sample.xml`: A sample API definition XML with the various options laid out.  
 
 
-Anatomy of a Plugin
----
+## Anatomy of a Plugin
 Plugins have three major interfaces to the Epico core:
 1. The auth function which preapares our ApiRequest to Authenticate to the API
 2. The paging peek function which looks at the response and determines if we need to page
@@ -88,14 +85,12 @@ The parameters are the API response in `[]byte` form, the a `[]string` containin
 The parameters are a map of `ComparableApiRequests` and their associated `[]byte` API responses, and a list of API vars/keys associated with the requests made.  The last value is a `[]string` of any plugin-specific configs.  The return is a `[]byte` reprsenting the final JSON output.
 
 
-Development Considerations
----
+## Development Considerations
 * Please use standard `utils` like the built-in logging functions to keep things consistent.
 * Please contribute more widely reusable code to the core project rather than embedding it in your plugin. 
 
 
-Future Improvements
----
+## Future Improvements
 * Appropriate testing.
 * Support other request types beyond GET.
 * Handle backoffs on requests.

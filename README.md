@@ -1,6 +1,5 @@
-# Epico
+<img src="https://github.com/SREnity/epico/raw/master/assets/epico.png" width="100"><h1>Epico<h1>
 
-<img src="https://github.com/SREnity/epico/raw/master/assets/epico.png" width="100">
 
 About
 ---

@@ -1,3 +1,7 @@
+# Epico
+
+<img src="https://github.com/SREnity/epico/raw/master/assets/epico.png" width="100">
+
 About
 ---
 Epico aims to make API ingestion easy.  By providing a common framework to manage API calls and plugins to handle any API-specific logic - Epico aims to make API ingestion to be as simple as creating a YAML representing the endpoints you want to ingest. 

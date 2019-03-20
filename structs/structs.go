@@ -21,6 +21,7 @@ type ApiEndpoint struct {
     Name string `yaml:"name"` // Required at all levels.
     Vars map[string]string `yaml:"vars,omitempty"`
     Paging map[string]string `yaml:"paging,omitempty"` // Optional
+    Return string `yaml:"return,omitempty"` // Optional
     Endpoint string `yaml:"endpoint"` // Required
     CurrentBaseKey []string `yaml:"current_base_key,omitempty"` // Managing APIs that return a dict => list
     DesiredBaseKey []string `yaml:"desired_base_key,omitempty"` // Managing APIs that return a dict => list
@@ -28,7 +29,7 @@ type ApiEndpoint struct {
     DesiredErrorKey []string `yaml:"desired_error_key,omitempty"` // Managing APIs that return a dict => list
     Documentation string `yaml:"documentation,omitempty"` // Optional
     Params ApiParams `yaml:"params,flow,omitempty"` // Optional
-    Endpoints map[string]ApiEndpoint `yaml:"endpoints,omitempty"` // Iterating Key => Endpoint
+    Endpoints map[string][]ApiEndpoint `yaml:"endpoints,omitempty"` // Iterating Key => Endpoint
 }
 
 type ApiRequest struct {
@@ -49,6 +50,7 @@ type ApiRequest struct {
 
 type ComparableApiRequest struct {
     Name string
+    Uuid string
     Endpoint string
     AttemptTime time.Time
     Time time.Time
@@ -75,11 +77,62 @@ type ApiCredentials struct {
     Token string
 }
 
+
 func (a ApiRequest) ToComparableApiRequest() ComparableApiRequest {
     return ComparableApiRequest{
         Name: a.Settings.Name,
+        Uuid: "",
         Endpoint: a.Endpoint,
         AttemptTime: a.AttemptTime,
         Time: a.Time,
         }
+}
+
+
+func (a ApiEndpoint) Copy() ApiEndpoint {
+    var returnApiEndpoint ApiEndpoint
+
+    returnApiEndpoint.Name = a.Name
+    returnApiEndpoint.Vars = make(map[string]string)
+    returnApiEndpoint.Paging = make(map[string]string)
+    for k, v := range a.Vars {
+        returnApiEndpoint.Vars[k] = v
+    }
+    for k, v := range a.Paging {
+        returnApiEndpoint.Paging[k] = v
+    }
+    returnApiEndpoint.Return = a.Return
+    returnApiEndpoint.Endpoint = a.Endpoint
+    returnApiEndpoint.CurrentBaseKey = a.CurrentBaseKey
+    returnApiEndpoint.DesiredBaseKey = a.DesiredBaseKey
+    returnApiEndpoint.CurrentErrorKey = a.CurrentErrorKey
+    returnApiEndpoint.DesiredErrorKey = a.DesiredErrorKey
+    returnApiEndpoint.Documentation = a.Documentation
+    returnApiEndpoint.Params = a.Params.Copy()
+    returnApiEndpoint.Endpoints = make(map[string][]ApiEndpoint)
+    for k, v := range a.Endpoints {
+        returnApiEndpoint.Endpoints[k] = v
+    }
+
+    return returnApiEndpoint
+}
+
+
+func (a ApiParams) Copy() ApiParams {
+    var returnApiParams ApiParams
+
+    returnApiParams.QueryString = make(map[string][]string)
+    returnApiParams.Header = make(map[string][]string)
+    returnApiParams.Body = make(map[string][]string)
+    for k, v := range a.QueryString {
+        returnApiParams.QueryString[k] = v
+    }
+    for k, v := range a.Header {
+        returnApiParams.Header[k] = v
+    }
+    for k, v := range a.Body {
+        returnApiParams.Body[k] = v
+    }
+
+    return returnApiParams
 }

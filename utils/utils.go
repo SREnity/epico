@@ -123,7 +123,7 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
 
     // Find our additional key data in the list of keys so we can work with it.
     for _, keys := range jsonKeys {
-        if keys["api_call_name"] != response.Name {
+        if keys["api_call_uuid"] != response.Uuid {
             continue
         }
         // Here we handle passing in list form so we can pull multiple pieces of
@@ -146,7 +146,7 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
             }
 
             // Run through non-error keys.
-            parsedSubStructure := parseJsonSubStructure( cbkSet, 0,
+            parsedSubStructure := ParseJsonSubStructure( cbkSet, 0,
                 unparsedStructure )
             // Was getting some weird byRef issues when setting the map directly
             //    equal and passing it as a param.
@@ -159,7 +159,7 @@ func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, json
             // These aren't added explicitly to the key set (aren't always going
             //    to be there), so we need to check for nils.
             if _, ok := unparsedStructure[cekSet[0]]; ok {
-                parsedSubStructure = parseJsonSubStructure( cekSet, 0,
+                parsedSubStructure = ParseJsonSubStructure( cekSet, 0,
                     unparsedStructure )
                 // Was getting some weird byRef issues when setting the map
                 //    directly equal and passing it as a param.
@@ -242,14 +242,17 @@ func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue 
 // peekParams   = Unused, plugin-specific params.
 func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
 
+    if len(response) < 4 || response == nil {
+        return interface{}(nil), false
+    }
     var responseMap map[string]interface{}
     err := json.Unmarshal(response, &responseMap)
     if err != nil {
         var responseSlice []interface{}
         err1 := json.Unmarshal(response, &responseSlice)
         if err1 != nil {
-            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
-                err)
+            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON (" + string(response) + ")",
+                err1)
         } else {
             LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
                 err)
@@ -447,7 +450,7 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
                 append( response, []byte("}") ... ) ... )
             // Add our new key we created to the base key expected.
             for i, v := range jsonKeys {
-                if v["api_call_name"] == request.Name {
+                if v["api_call_uuid"] == request.Uuid {
                     length, err := strconv.Atoi(v["key_count"])
                     if err != nil {
                         LogFatal("DefaultJsonPostProcess",
@@ -463,6 +466,10 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
                                 jsonKeys[i][keyString]
                         }
                     }
+                    // Duplicated names aren't allowed, but do happen with sub-
+                    //    endpoints.  In which case, all other input fields
+                    //    like the current base key should be the same.
+                    break
                 }
             }
         }
@@ -742,30 +749,6 @@ func populateSliceRecursion( rawYaml string, varsData map[string][]string, index
 }
 
 
-// Used at build-time for plugins to actually create the expanded YAML files.
-// Vars:
-// configDir    = Directory to write new YAML files to.
-// originalYaml = Raw YAML we are expanding.
-// varValues    = The vars we are expanding.
-//func createCacheFile( configDir string, originalYaml string, varValues map[string]string ) {
-//    newYaml := originalYaml
-//    for k, v := range varValues {
-//        newYaml = strings.Replace( newYaml, "{{" + k + "}}", v, -1 )
-//    }
-//
-//    newUuid, err := uuid.NewV4()
-//    if err != nil {
-//        LogFatal("createCacheFile", "Unable to generate new UUID", err)
-//    }
-//
-//    err = ioutil.WriteFile(configDir + newUuid.String() + ".yaml", []byte(newYaml), 0755)
-//    if err != nil {
-//        LogFatal("createCacheFile", "Error writing YAML API defnition", err)
-//    }
-//
-//}
-
-
 // Recursively drill down into JSON to find the value of a specific key set
 //    (e.g. {"X": { "Y": { "Z": [ 1, 2, 3 ] } } } with key set "X.Y.Z" would
 //    return [ 1, 2, 3 ]).
@@ -773,7 +756,7 @@ func populateSliceRecursion( rawYaml string, varsData map[string][]string, index
 // kSet         = Key set being searched for.
 // count        = Recursive depth count.
 // subStructure = Structure being plumbed.
-func parseJsonSubStructure( kSet []string, count int, subStructure interface{} ) []interface{} {
+func ParseJsonSubStructure( kSet []string, count int, subStructure interface{} ) []interface{} {
     // Start by marshaling our interface{} into a map which everything in JSON
     //    should be if there are more subkeys.
     var subStructureMap map[string]interface{}
@@ -783,7 +766,7 @@ func parseJsonSubStructure( kSet []string, count int, subStructure interface{} )
 
     marshaledInterface, err := json.Marshal(subStructure)
     if err != nil {
-        LogFatal("parseJsonSubStructure", "Error marshaling JSON", err)
+        LogFatal("ParseJsonSubStructure", "Error marshaling JSON", err)
         return nil
     }
 
@@ -794,7 +777,7 @@ func parseJsonSubStructure( kSet []string, count int, subStructure interface{} )
             if err != nil {
                 // TODO: Failure shouldn't wipe the map.  Really should
                 //    unmarshal elsewhere and check.
-                LogFatal("parseJsonSubStructure", "Error unmarshaling JSON", err)
+                LogFatal("ParseJsonSubStructure", "Error unmarshaling JSON", err)
             }
         }
     } else { // Wasn't a list? Append it to the blank to make a list.
@@ -822,7 +805,7 @@ func parseJsonSubStructure( kSet []string, count int, subStructure interface{} )
             // We don't want [ <nil> ], so just don't append if it's nil.
             if v[kSet[count]] != nil {
                 finalInterfaceList = append(
-                    finalInterfaceList, parseJsonSubStructure(
+                    finalInterfaceList, ParseJsonSubStructure(
                         kSet, count + 1, v[kSet[count]] )... )
             }
         }

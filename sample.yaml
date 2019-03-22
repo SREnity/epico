@@ -27,10 +27,11 @@ endpoints:
         vars1: [ "(Map of Slices)", "Multiple", "values", "spread", "across", "multiple", "requests" ]
       body:
         vars1: [ "(Map of Slices)", "Multiple", "values", "spread", "across", "multiple", "requests" ]
-#    endpoints:
-#      - key: # Repositories.Id
-#          name:
-#          endpoint:
-#          documentation:
-#          params:
-#            foo3: $foo1
+    endpoints:
+      key: # Repositories.Id (string) "."-delimited string for where key is located in original response
+        - name: ""
+          endpoint: ""
+          documentation: ""
+          params:
+            foo3: ""
+          ...

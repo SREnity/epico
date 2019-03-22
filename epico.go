@@ -14,12 +14,7 @@ import (
     "github.com/SREnity/epico/utils"
 
     "gopkg.in/yaml.v2"
-
-
-    //TODO REMOVE THIS
-    xj "github.com/basgys/goxml2json"
     uuid "github.com/satori/go.uuid"
-    "bytes"
 )
 
 // The meat of Epico and the only thing called externally - it handles parsing
@@ -172,6 +167,16 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
                     "Error looking up plugin Auth function", err)
             }
 
+            var PluginResponseToJsonFunction = new( *func(map[string]string,
+                []byte)[]byte )
+            rtjSymbol, err := plug.Lookup("PluginResponseToJsonFunction")
+            *PluginResponseToJsonFunction = rtjSymbol.( *func(map[string]string,
+                []byte)[]byte)
+            if err != nil {
+                utils.LogFatal("PullApiData",
+                    "Error looking up plugin ResponseToJson function", err)
+            }
+
             // We only take the post processing from the first YAML we pull.
             if *PluginPostProcessFunction == nil {
                 ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
@@ -196,15 +201,11 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
 
             // TODO: This doesn't work with a sub endpoint that uses a different
             //     plugin.
-            utils.LogWarn("Response Count Before", strconv.Itoa(len(responseList)), nil)
-            utils.LogWarn("Key Count Before", strconv.Itoa(len(jsonKeys)), nil)
-            holderResponseList, holderJsonKeys := runThroughEndpoints( api.Endpoints, rootSettingsData, additionalParams, PluginAuthFunction, PluginPagingPeekFunction, true )
+            holderResponseList, holderJsonKeys := runThroughEndpoints( api.Endpoints, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, true, 0 )
             for k, v := range holderResponseList {
                 responseList[k] = v
             }
             jsonKeys = append( jsonKeys, holderJsonKeys ...)
-            utils.LogWarn("Response Count After", strconv.Itoa(len(responseList)), nil)
-            utils.LogWarn("Key Count After", strconv.Itoa(len(jsonKeys)), nil)
         }
     }
 
@@ -213,9 +214,6 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
     //    but that kind of breaks the idea that we would return everything from
     //    a single external call as a single JSON blob.  So instead, we're just
     //    going to use the one provided in a general configuration file.
-    for k, v := range responseList {
-        utils.LogWarn("Final Response", k.Name + ": " + string([]byte(v)[0:200]), nil)
-    }
     var finalResponseValueList []reflect.Value
     finalResponseValueList = append( finalResponseValueList,
         reflect.ValueOf( responseList ), reflect.ValueOf( jsonKeys ),
@@ -229,7 +227,7 @@ func PullApiData( configLocation string, authParams []string, peekParams []strin
 }
 
 
-func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsData generic_structs.ApiRequestInheritableSettings, additionalParams map[string]map[string]map[string]string, PluginAuthFunction **func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest, PluginPagingPeekFunction **func([]uint8, []string, interface {}, []string)(interface {}, bool), runSubEndpoints bool ) (map[generic_structs.ComparableApiRequest][]byte, []map[string]string) {
+func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsData generic_structs.ApiRequestInheritableSettings, additionalParams map[string]map[string]map[string]string, PluginAuthFunction **func(generic_structs.ApiRequest, []string)generic_structs.ApiRequest, PluginResponseToJsonFunction **func(map[string]string, []byte)[]byte, PluginPagingPeekFunction **func([]uint8, []string, interface {}, []string)(interface {}, bool), runSubEndpoints bool, depth int) (map[generic_structs.ComparableApiRequest][]byte, []map[string]string) {
     responseList := make(map[generic_structs.ComparableApiRequest][]byte)
     var jsonKeys []map[string]string
 
@@ -238,7 +236,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
         var name string
         var cbk, dbk, cek, dek []string
         var vars, paging map[string]string
-        var params generic_structs.ApiParams
+        params := generic_structs.ApiParams{}
 
         // Pull substitution vars first so we can substitute while
         //    saving other variables
@@ -313,6 +311,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
             }
         }
 
+        // If we have substitution vars, do the substitutions.
         if epSubs {
             for k, v := range ep.Vars {
                 if len(cbk) != len(dbk) || len(cbk) != len(cek) ||
@@ -362,7 +361,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
 
         tempRequest, err := http.NewRequest("GET", ep.Endpoint, nil)
         if err != nil {
-            utils.LogFatal("PullApiData", "Error making API request",
+            utils.LogFatal("PullApiData", "Error creating API request object",
                 err)
         }
 
@@ -393,6 +392,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
         }
 
         // TODO: This seems dreadfully inefficient...
+        // Only add a new keyset if one like it doesn't exist
         found := false
         for _, v := range jsonKeys {
             if reflect.DeepEqual( v, newKeySet ) {
@@ -403,6 +403,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
             jsonKeys = append( jsonKeys, newKeySet )
         }
 
+        // Create our new ApiRequest object with the extrapolated data
         newApiRequest := generic_structs.ApiRequest{
             Settings: generic_structs.ApiRequestInheritableSettings{
                 Name: name,
@@ -421,6 +422,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
             FullRequest: tempRequest,
         }
 
+        // Apply our passed vars to the header/qs/body.
         q := newApiRequest.FullRequest.URL.Query()
         h := newApiRequest.FullRequest.Header
         for k, v := range newApiRequest.Params.Header {
@@ -451,6 +453,7 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
         comRequest.Uuid = newUuid.String()
         // If we've done a request to this endpoint before, append the
         //    result - otherwise, create a new key in our response Map.
+        // Also, don't append the result if we don't want to return this data
         if ep.Return != "false" {
             if _, ok := responseList[comRequest]; ok {
                 responseList[comRequest] = append(
@@ -617,62 +620,50 @@ func runThroughEndpoints( endpoints []generic_structs.ApiEndpoint, rootSettingsD
 
         // How do we expand variables into sub endpoints (e.g. main
         //     endpoint is for us-east-1 but sub endpoint should do all)
-        // TODO: For now, if the instance is in us-east-1, the subcalls
+        // TODO: Example: For now, if the instance is in us-east-1, the subcalls
         //     would be to.  Leaving for now.
         for key, sEp := range ep.Endpoints {
             // for matching keys in ep.Endpoint response
             //     create new endpoint epHolder
             //     expand endpoint_key into epHolder properties
-            //     run calls on subendpointp
-/// TODO MESS FROM HERE TO THE NEXT TODO
-    jsonBody, err := xj.Convert( bytes.NewReader( response ) )
-    if err != nil {
-        utils.LogFatal("XmlResponseProcess", "Error parsing XML response", err)
-        return nil, nil
-    }
+            //     run calls on subendpoint
+            var jsonConversionValue []reflect.Value
+            jsonConversionValue = append( jsonConversionValue,
+                reflect.ValueOf( ep.Vars ),
+                reflect.ValueOf( response ) )
+            finalJsonResponse := reflect.ValueOf( (
+                **PluginResponseToJsonFunction ) ).Call( jsonConversionValue )
 
-    pagingData := utils.RemoveXmlTagFromJson( "item", jsonBody.Bytes() )
+            pagingData := finalJsonResponse[0].Bytes()
 
             responseKeys = strings.Split( key, "." )
-    var unparsedStructure map[string]interface{}
-    err = json.Unmarshal(pagingData, &unparsedStructure)
-    if err != nil {
-        utils.LogFatal("FAKEParsePostProcessedJson", "Error unmarshaling JSON", err)
-    }
+            var unparsedStructure map[string]interface{}
+            err = json.Unmarshal(pagingData, &unparsedStructure)
+            if err != nil {
+                utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
+            }
 
-            testInt := utils.ParseJsonSubStructure( responseKeys, 0, unparsedStructure )
+            keyValues := utils.ParseJsonSubStructure( responseKeys, 0, unparsedStructure )
 
             var epHolder []generic_structs.ApiEndpoint
-            for _, v := range sEp {
-        // TODO: ADDING SUB ENDPOINTS 03/18/19
-                // TODO: Remove and reformat the ugliness above.
-                //     Extract the call/postprocess/paging loop.
-                //     Apply loop to response here before appending to responseList 
-
+            for _, endpoint := range sEp {
                 // For each ID key returned, create a new endpoint and append
-                for _, value := range testInt {
+                for _, value := range keyValues {
                     var newSubEp generic_structs.ApiEndpoint
-                    newSubEp = v.Copy()
+                    newSubEp = endpoint.Copy()
                     newSubEp.Vars["endpoint_key"] = value.(string)
                     epHolder = append( epHolder, newSubEp )
                 }
             }
 
-            subResponseList, subJsonKeys := runThroughEndpoints( epHolder, rootSettingsData, additionalParams, PluginAuthFunction, PluginPagingPeekFunction, false )
+            // Recursively call this method for each sub endpoint.
+            subResponseList, subJsonKeys := runThroughEndpoints( epHolder, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, false, depth+1 )
             for k, v := range subResponseList {
                 responseList[k] = v;
-                //utils.LogWarn("Sub Response", k.Endpoint + ": " + string(v), nil)
             }
             jsonKeys = append( jsonKeys, subJsonKeys ... )
         }
 
-    }
-
-    utils.LogWarn("BEGIN Sub Response", "BEGIN Sub Response", nil)
-    for k, v := range responseList {
-        if len(v) > 250 {
-            utils.LogWarn("Sub Response", k.Endpoint + ": " + string([]byte(v)[0:250]), nil)
-        }
     }
 
     return responseList, jsonKeys

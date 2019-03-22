@@ -42,7 +42,7 @@ func main() {
     //                    },
     //                    ...
     //                } 
-    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"}, []string(nil), []string(nil), map[string]map[string]map[string]string(nil) ) )
+    responseFunc( epico.PullApiData( "./epico-configs/", "./epico-plugins/aws/aws.so", []string{"XXXAWS_ACCESS_KEYXXX", "XXXXXXXXXXXXAWS_SECRET_KEYXXXXXXXXXX"}, []string(nil), []string(nil), make( map[string]map[string]map[string]string(nil) ) ) )
 }
 
 func responseFunc( answer []byte ) {
@@ -59,18 +59,21 @@ func responseFunc( answer []byte ) {
 
 
 ## Anatomy of a Plugin
-Plugins have three major interfaces to the Epico core:
+Plugins have four major interfaces to the Epico core:
 1. The auth function which preapares our ApiRequest to Authenticate to the API
 2. The paging peek function which looks at the response and determines if we need to page
 3. The post process function which takes the API responses and parses them into a final JSON response []byte 
+4. The response to JSON function for plugins that deal with non-JSON structures (XML, etc) to convert the response into valid JSON.
 
 These need to be exported with the following names - PluginAuthFunction, PluginPostProcessFunction, and PluginPagingPeekFunction - like so:
 
 ```
-// Function names are PluginAuth, PluginPostProcess, and PluginPagingPeek
+// Function names are PluginAuth, PluginPostProcess, PluginResponseToJson, and
+//    PluginPagingPeek
 var PluginAuthFunction = PluginAuth
 var PluginPagingPeekFunction = PluginPagingPeek
 var PluginPostProcessFunction = PluginPostProcess
+var PluginResponseToJsonFunction = PluginResponseToJson
 ```
 
 The function signatures are as follows:
@@ -83,6 +86,8 @@ The parameters are the API response in `[]byte` form, the a `[]string` containin
 
 `PluginPostProcessFunction`: `func( map[generic_structs.ComparableApiRequest][]byte, []map[string]string, []string ) []byte`
 The parameters are a map of `ComparableApiRequests` and their associated `[]byte` API responses, and a list of API vars/keys associated with the requests made.  The last value is a `[]string` of any plugin-specific configs.  The return is a `[]byte` reprsenting the final JSON output.
+`PluginResponseToJsonFunction`: `func( map[string]string, []byte ) []byte`
+The parameters are a map of variables (usually from the `ApiEndpoint.Vars`) and a `[]byte` representing the API response received from that endpoint.  The return is a `[]byte` representing the response converted to valid JSON.
 
 
 ## Development Considerations

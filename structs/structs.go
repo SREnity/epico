@@ -103,15 +103,30 @@ func (a ApiEndpoint) Copy() ApiEndpoint {
     }
     returnApiEndpoint.Return = a.Return
     returnApiEndpoint.Endpoint = a.Endpoint
-    returnApiEndpoint.CurrentBaseKey = a.CurrentBaseKey
-    returnApiEndpoint.DesiredBaseKey = a.DesiredBaseKey
-    returnApiEndpoint.CurrentErrorKey = a.CurrentErrorKey
-    returnApiEndpoint.DesiredErrorKey = a.DesiredErrorKey
+    for _, v := range a.CurrentBaseKey {
+        returnApiEndpoint.CurrentBaseKey = append(
+            returnApiEndpoint.CurrentBaseKey, v )
+    }
+    for _, v := range a.DesiredBaseKey {
+        returnApiEndpoint.DesiredBaseKey = append(
+            returnApiEndpoint.DesiredBaseKey, v )
+    }
+    for _, v := range a.CurrentErrorKey {
+        returnApiEndpoint.CurrentErrorKey = append(
+            returnApiEndpoint.CurrentErrorKey, v )
+    }
+    for _, v := range a.DesiredErrorKey {
+        returnApiEndpoint.DesiredErrorKey = append(
+            returnApiEndpoint.DesiredErrorKey, v )
+    }
     returnApiEndpoint.Documentation = a.Documentation
     returnApiEndpoint.Params = a.Params.Copy()
     returnApiEndpoint.Endpoints = make(map[string][]ApiEndpoint)
     for k, v := range a.Endpoints {
-        returnApiEndpoint.Endpoints[k] = v
+        for _, sv := range v {
+            returnApiEndpoint.Endpoints[k] = append(
+                returnApiEndpoint.Endpoints[k], sv )
+        }
     }
 
     return returnApiEndpoint
@@ -125,13 +140,20 @@ func (a ApiParams) Copy() ApiParams {
     returnApiParams.Header = make(map[string][]string)
     returnApiParams.Body = make(map[string][]string)
     for k, v := range a.QueryString {
-        returnApiParams.QueryString[k] = v
+        for _, sv := range v {
+            returnApiParams.QueryString[k] = append(
+                returnApiParams.QueryString[k], sv )
+        }
     }
     for k, v := range a.Header {
-        returnApiParams.Header[k] = v
+        for _, sv := range v {
+            returnApiParams.Header[k] = append( returnApiParams.Header[k], sv )
+        }
     }
     for k, v := range a.Body {
-        returnApiParams.Body[k] = v
+        for _, sv := range v {
+            returnApiParams.Body[k] = append( returnApiParams.Body[k], sv )
+        }
     }
 
     return returnApiParams

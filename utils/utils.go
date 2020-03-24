@@ -14,7 +14,7 @@ import (
     "strconv"
     "strings"
 
-    generic_structs "github.com/SREnity/epico/structs"
+    generic_structs "epico/structs"
 
     xj "github.com/basgys/goxml2json"
 

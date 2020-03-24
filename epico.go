@@ -10,8 +10,8 @@ import (
     "strings"
     "time"
 
-    generic_structs "github.com/SREnity/epico/structs"
-    "github.com/SREnity/epico/utils"
+    generic_structs "epico/structs"
+    "epico/utils"
 
     "gopkg.in/yaml.v2"
     uuid "github.com/satori/go.uuid"

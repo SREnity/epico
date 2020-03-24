@@ -73,8 +73,8 @@ import (
     "strings"
     "time"
 
-    aws_signer_structs "github.com/SREnity/epico/signers/structs"
-    generic_structs "github.com/SREnity/epico/structs"
+    aws_signer_structs "epico/signers/structs"
+    generic_structs "epico/structs"
 //    "github.com/aws/aws-sdk-go/aws/request" //TODO
 )
 

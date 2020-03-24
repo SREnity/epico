@@ -1,4 +1,4 @@
-// Shamelessly taken under Apache2 from 
+// Shamelessly taken under Apache2 from
 
 // https://github.com/aws/aws-sdk-go/blob/master/aws
 // https://github.com/aws/aws-sdk-go/blob/master/LICENSE.txt
@@ -73,8 +73,8 @@ import (
     "strings"
     "time"
 
-    aws_signer_structs "epico/signers/structs"
-    generic_structs "epico/structs"
+    aws_signer_structs "github.com/SREnity/epico/signers/structs"
+    generic_structs "github.com/SREnity/epico/structs"
 //    "github.com/aws/aws-sdk-go/aws/request" //TODO
 )
 

@@ -1,4 +1,4 @@
-module epico
+module github.com/SREnity/epico
 
 go 1.14
 

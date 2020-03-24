@@ -14,7 +14,7 @@ import (
     "strconv"
     "strings"
 
-    generic_structs "epico/structs"
+    generic_structs "github.com/SREnity/epico/structs"
 
     xj "github.com/basgys/goxml2json"
 
@@ -428,7 +428,7 @@ func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue i
 }
 
 
-// Takes a map of requests to their []byte responses, iterates through them to 
+// Takes a map of requests to their []byte responses, iterates through them to
 //    pull the desired data (and errors), and compiles the final result.
 // Vars:
 // apiResponseMap = A map of API requests made and their corresponding responses
@@ -486,7 +486,7 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
 
 
 // Auth function for basic username/password auth implementations.  Takes a
-//    username and password and constructs the Authorization header. 
+//    username and password and constructs the Authorization header.
 // Vars:
 // apiRequest = The ApiRequest to be used.
 // authParams = JWT params in the order of:
@@ -505,7 +505,7 @@ func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gen
 
 
 // Auth function for custom querystring auth implementations.  Takes an
-//    alternating list of keys/values and constructs the querystring. 
+//    alternating list of keys/values and constructs the querystring.
 // Vars:
 // apiRequest = The ApiRequest to be used.
 // authParams = Auth params in any quantity, alternating key then value:
@@ -539,7 +539,7 @@ func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []
 
 
 // Auth function for custom header auth implementations.  Takes an alternating
-//    list of keys/values and constructs the header. 
+//    list of keys/values and constructs the header.
 // Vars:
 // apiRequest = The ApiRequest to be used.
 // authParams = Auth params in any quantity, alternating key then value:
@@ -570,12 +570,12 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 
 // Auth function for custom header auth implementations that also require basic
 //    auth.  Takes the basic auth keys username/password and an alternating
-//    list of keys/values and constructs the header. 
+//    list of keys/values and constructs the header.
 // Vars:
 // apiRequest = The ApiRequest to be used.
 // authParams = Auth params in any quantity, alternating key then value:
-//              [0] => username 
-//              [1] => password 
+//              [0] => username
+//              [1] => password
 //              [x] => header key
 //              [x+1] => header value
 func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
@@ -593,7 +593,7 @@ func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams
 // Vars:
 // apiRequest = The ApiRequest to be used.
 // authParams = Session params in the order of:
-//              [0] => Where the token is in the response e.g. "data.token" 
+//              [0] => Where the token is in the response e.g. "data.token"
 //              [1] => Custom header key e.g. "Authorization" or "Auth-Token"
 //              [2] => Custom header pre-token value e.g. "token "
 //              [3] => Session token URL
@@ -664,7 +664,7 @@ func SessionTokenAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 // apiRequest = The ApiRequest to be used.
 // authParams = Oauth2 params in the order of:
 //              [0] => client ID
-//              [1] => client secret 
+//              [1] => client secret
 //              [2] => scopes (csv)
 //              [3] => token url
 //              [4] => endpoint params (string with ":" key/value separator and
@@ -729,7 +729,7 @@ func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gener
 // indexes   = List of variables being expanded.
 // depth     = Count of recursion depth.
 // listIndex = Count of variable being expanded from the []string of vars.
-// varValues = Values being replaced. 
+// varValues = Values being replaced.
 func populateSliceRecursion( rawYaml string, varsData map[string][]string, indexes []string, depth int, listIndex int, varValues map[string]string, returnSlice [][]byte ) [][]byte {
     if depth == len(indexes) - 1 { // If we're at the end of the keys list.
         varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]

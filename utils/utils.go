@@ -436,29 +436,29 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 			// Maybe more efficient, but less robust than build and marshal?
 			response = append([]byte("{\"items\":"),
 				append(response, []byte("}")...)...)
-			// Add our new key we created to the base key expected.
-			for i, v := range jsonKeys {
-				if v["api_call_uuid"] == request.Uuid {
-					length, err := strconv.Atoi(v["key_count"])
-					if err != nil {
-						LogFatal("DefaultJsonPostProcess",
-							"Non-integer key_count is invalid", err)
-					}
-					for ci := 0; ci < length; ci++ {
-						keyString := "current_base_key_" + strconv.Itoa(ci)
-						if _, ok := jsonKeys[i][keyString]; ok ||
-							jsonKeys[i][keyString] == "" {
-							jsonKeys[i][keyString] = "items"
-						} else {
-							jsonKeys[i][keyString] = "items." +
-								jsonKeys[i][keyString]
-						}
-					}
-					// Duplicated names aren't allowed, but do happen with sub-
-					//    endpoints.  In which case, all other input fields
-					//    like the current base key should be the same.
-					break
+		}
+		// Add our new key we created to the base key expected.
+		for i, v := range jsonKeys {
+			if v["api_call_uuid"] == request.Uuid {
+				length, err := strconv.Atoi(v["key_count"])
+				if err != nil {
+					LogFatal("DefaultJsonPostProcess",
+						"Non-integer key_count is invalid", err)
 				}
+				for ci := 0; ci < length; ci++ {
+					keyString := "current_base_key_" + strconv.Itoa(ci)
+					if _, ok := jsonKeys[i][keyString]; ok ||
+						jsonKeys[i][keyString] == "" {
+						jsonKeys[i][keyString] = "items"
+					} else {
+						jsonKeys[i][keyString] = "items." +
+							jsonKeys[i][keyString]
+					}
+				}
+				// Duplicated names aren't allowed, but do happen with sub-
+				//    endpoints.  In which case, all other input fields
+				//    like the current base key should be the same.
+				break
 			}
 		}
 		structureVar, errorVar := ParsePostProcessedJson(request, jsonKeys,

@@ -1,105 +1,100 @@
 package utils
 
 import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "io/ioutil"
-    "log"
-    "net/http"
-    "net/url"
-//    "os"
-    "reflect"
-    "regexp"
-    "strconv"
-    "strings"
+	"bytes"
+	"context"
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/url"
 
-    generic_structs "github.com/SREnity/epico/structs"
+	//    "os"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
 
-    xj "github.com/basgys/goxml2json"
+	generic_structs "github.com/SREnity/epico/structs"
 
-    "golang.org/x/oauth2/jwt"
-    "golang.org/x/oauth2/clientcredentials"
+	xj "github.com/basgys/goxml2json"
+
+	"golang.org/x/oauth2/clientcredentials"
+	"golang.org/x/oauth2/jwt"
 )
 
-
-func LogFatal( function string, text string, err error ) {
-    log.Fatalf("(Epico:%v) %v: %v\n", function, text, err)
+func LogFatal(function string, text string, err error) {
+	log.Fatalf("(Epico:%v) %v: %v\n", function, text, err)
 }
 
-
-func LogWarn( function string, text string, err error ) {
-    log.Printf("(Epico:%v) %v: %v\n", function, text, err)
+func LogWarn(function string, text string, err error) {
+	log.Printf("(Epico:%v) %v: %v\n", function, text, err)
 }
-
 
 // This function simply takes an XML response and converts it to JSON (the
 //    preferred internal form of Epico).
 // Args:
 // apiResponse = A []byte representation of the XML API response.
-func XmlResponseProcess( apiResponse []byte ) []byte {
+func XmlResponseProcess(apiResponse []byte) []byte {
 
-    jsonBody, err := xj.Convert( bytes.NewReader( apiResponse ) )
-    if err != nil {
-        LogFatal("XmlResponseProcess", "Error parsing XML response", err)
-        return nil
-    }
+	jsonBody, err := xj.Convert(bytes.NewReader(apiResponse))
+	if err != nil {
+		LogFatal("XmlResponseProcess", "Error parsing XML response", err)
+		return nil
+	}
 
-    return jsonBody.Bytes()
+	return jsonBody.Bytes()
 
 }
-
 
 // Used to expand out the shorthand YAMLs with expansion vars into a series of
 //    individual, expanded YAML []byte's for consumption by Epico.
 // Args:
 // rawYaml  = raw YAML []byte that will be tranformed into a slice of []bytes
 // varsData = vars data to be expanded
-func PopulateYamlSlice( rawYaml string, varsData map[string][]string ) [][]byte {
-    indexes := make([]string, len(varsData)) // These are keys that need to be
-    depth := 0                               //    expanded
-    varValues := make(map[string]string, len(varsData)) // Actual sub values
-    index := 0
-    for k, _ := range varsData {
-        // Load our keys into the indexes slice and instantiate varValues maps
-        indexes[index] = k
-        index += 1
-        varValues[k] = ""
-    }
+func PopulateYamlSlice(rawYaml string, varsData map[string][]string) [][]byte {
+	indexes := make([]string, len(varsData))            // These are keys that need to be
+	depth := 0                                          //    expanded
+	varValues := make(map[string]string, len(varsData)) // Actual sub values
+	index := 0
+	for k, _ := range varsData {
+		// Load our keys into the indexes slice and instantiate varValues maps
+		indexes[index] = k
+		index += 1
+		varValues[k] = ""
+	}
 
-    var returnSlice [][]byte
-    for i, _ := range varsData[indexes[depth]] {
-        // Don't need to append here because returnSlice is being passed and
-        //    builds upon the old slice.
-        returnSlice = populateSliceRecursion( rawYaml, varsData, indexes, depth, i, varValues, returnSlice )
-    }
+	var returnSlice [][]byte
+	for i, _ := range varsData[indexes[depth]] {
+		// Don't need to append here because returnSlice is being passed and
+		//    builds upon the old slice.
+		returnSlice = populateSliceRecursion(rawYaml, varsData, indexes, depth, i, varValues, returnSlice)
+	}
 
-    return returnSlice
+	return returnSlice
 }
-
 
 // This function collapses two map[string]interface{} json representations into
 //    a single one. WARNING (TODO): This does not handle key collisions
 //    gracefully.
-func CollapseJson( returnsList map[string]interface{}, errorsList map[string]interface{} ) []byte {
-    finalList := make(map[string]interface{})
+func CollapseJson(returnsList map[string]interface{}, errorsList map[string]interface{}) []byte {
+	finalList := make(map[string]interface{})
 
-    for k, v := range returnsList {
-        finalList[k] = v
-    }
-    for k, v := range errorsList {
-        finalList[k] = v
-    }
+	for k, v := range returnsList {
+		finalList[k] = v
+	}
+	for k, v := range errorsList {
+		finalList[k] = v
+	}
 
-    finalJson, err := json.Marshal(finalList)
-    if err != nil {
-        LogFatal("CollapseJson", "Unable to Marshal final list JSON", err)
-        return nil
-    }
+	finalJson, err := json.Marshal(finalList)
+	if err != nil {
+		LogFatal("CollapseJson", "Unable to Marshal final list JSON", err)
+		return nil
+	}
 
-    return []byte(finalJson)
+	return []byte(finalJson)
 }
-
 
 // Recursively searches through a JSON response using a given set of keys
 //    indicating a valid response and/or error response.  It then updates the
@@ -111,112 +106,109 @@ func CollapseJson( returnsList map[string]interface{}, errorsList map[string]int
 //                        parsing.
 // parsedStructure      = Map we store response data in.
 // parsedErrorStructure = Map we store error data in.
-func ParsePostProcessedJson( response generic_structs.ComparableApiRequest, jsonKeys []map[string]string, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{} ) ( map[string]interface{}, map[string]interface{} ) {
-    // This chunk transforms the JSON based on the YAML requirements and
-    //    collapses the list.
-    var unparsedStructure map[string]interface{}
+func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonKeys []map[string]string, processedJson []byte, parsedStructure map[string]interface{}, parsedErrorStructure map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
+	// This chunk transforms the JSON based on the YAML requirements and
+	//    collapses the list.
+	var unparsedStructure map[string]interface{}
 
-    err := json.Unmarshal(processedJson, &unparsedStructure)
-    if err != nil {
-        LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
-    }
+	err := json.Unmarshal(processedJson, &unparsedStructure)
+	if err != nil {
+		LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
+	}
 
-    // Find our additional key data in the list of keys so we can work with it.
-    for _, keys := range jsonKeys {
-        if keys["api_call_uuid"] != response.Uuid {
-            continue
-        }
-        // Here we handle passing in list form so we can pull multiple pieces of
-        //    data from each API call.
-        length, err := strconv.Atoi(keys["key_count"])
-        if err != nil {
-            LogFatal("ParsePostProcessedJson", "Invalid key count", err)
-        }
-        for i := 0; i < length; i++ {
-            cbkSet := strings.Split(
-                keys["current_base_key_" + strconv.Itoa(i)], "." )
-            dbkSet := strings.Split(
-                keys["desired_base_key_" + strconv.Itoa(i)], "." )
-            cekSet := strings.Split(
-                keys["current_error_key_" + strconv.Itoa(i)], "." )
-            dekSet := strings.Split(
-                keys["desired_error_key_" + strconv.Itoa(i)], "." )
-            if len(cbkSet) < 1 || len(dbkSet) < 1 {
-                LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
-            }
+	// Find our additional key data in the list of keys so we can work with it.
+	for _, keys := range jsonKeys {
+		if keys["api_call_uuid"] != response.Uuid {
+			continue
+		}
+		// Here we handle passing in list form so we can pull multiple pieces of
+		//    data from each API call.
+		length, err := strconv.Atoi(keys["key_count"])
+		if err != nil {
+			LogFatal("ParsePostProcessedJson", "Invalid key count", err)
+		}
+		for i := 0; i < length; i++ {
+			cbkSet := strings.Split(
+				keys["current_base_key_"+strconv.Itoa(i)], ".")
+			dbkSet := strings.Split(
+				keys["desired_base_key_"+strconv.Itoa(i)], ".")
+			cekSet := strings.Split(
+				keys["current_error_key_"+strconv.Itoa(i)], ".")
+			dekSet := strings.Split(
+				keys["desired_error_key_"+strconv.Itoa(i)], ".")
+			if len(cbkSet) < 1 || len(dbkSet) < 1 {
+				LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
+			}
 
-            // Run through non-error keys.
-            parsedSubStructure := ParseJsonSubStructure( cbkSet, 0,
-                unparsedStructure )
-            // Was getting some weird byRef issues when setting the map directly
-            //    equal and passing it as a param.
-            newVar := addJsonKeyStructure( dbkSet, 0, parsedStructure,
-                parsedSubStructure, true)
-            parsedStructure = newVar.(map[string]interface{})
+			// Run through non-error keys.
+			parsedSubStructure := ParseJsonSubStructure(cbkSet, 0,
+				unparsedStructure)
+			// Was getting some weird byRef issues when setting the map directly
+			//    equal and passing it as a param.
+			newVar := addJsonKeyStructure(dbkSet, 0, parsedStructure,
+				parsedSubStructure, true)
+			parsedStructure = newVar.(map[string]interface{})
 
-
-            // Run through error keys.
-            // These aren't added explicitly to the key set (aren't always going
-            //    to be there), so we need to check for nils.
-            if _, ok := unparsedStructure[cekSet[0]]; ok {
-                parsedSubStructure = ParseJsonSubStructure( cekSet, 0,
-                    unparsedStructure )
-                // Was getting some weird byRef issues when setting the map
-                //    directly equal and passing it as a param.
-                newVar = addJsonKeyStructure( dekSet, 0, parsedErrorStructure,
-                    parsedSubStructure, false)
-                parsedErrorStructure = newVar.(map[string]interface{})
-            }
-        }
-    }
-    return parsedStructure, parsedErrorStructure
+			// Run through error keys.
+			// These aren't added explicitly to the key set (aren't always going
+			//    to be there), so we need to check for nils.
+			if _, ok := unparsedStructure[cekSet[0]]; ok {
+				parsedSubStructure = ParseJsonSubStructure(cekSet, 0,
+					unparsedStructure)
+				// Was getting some weird byRef issues when setting the map
+				//    directly equal and passing it as a param.
+				newVar = addJsonKeyStructure(dekSet, 0, parsedErrorStructure,
+					parsedSubStructure, false)
+				parsedErrorStructure = newVar.(map[string]interface{})
+			}
+		}
+	}
+	return parsedStructure, parsedErrorStructure
 }
-
 
 // Loops through a JSON response (usually one converted from XML) and removes
 //    the unnecessary/repeating tags often used by XML structures.
 // Vars:
 // tag      = Unwanted tag to be removed from the structure.
 // jsonBody = JSON that we want to remove the tag from.
-func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
+func RemoveXmlTagFromJson(tag string, jsonBody []byte) []byte {
 
-    bracketCount := 0
-    itemCount := make([]int, 0)
-    cursor := 0
-    processedJson := bytes.Buffer{}
+	bracketCount := 0
+	itemCount := make([]int, 0)
+	cursor := 0
+	processedJson := bytes.Buffer{}
 
-    for i, v := range jsonBody {
-        // Track quotes too and don't count {} inside quotes.
+	for i, v := range jsonBody {
+		// Track quotes too and don't count {} inside quotes.
 
-        sliceIndex := intInSlice( bracketCount, itemCount )
-        if sliceIndex > -1 {
-            processedJson.WriteString( string( jsonBody[cursor:(i-1)] ) )
-            itemCount = append( itemCount[:sliceIndex],
-                itemCount[(sliceIndex+1):]... )
-            cursor = i
-        } else if i == len(jsonBody) - 1 {
-            processedJson.WriteString(string(jsonBody[cursor:(i+1)]))
-            break
-        }
+		sliceIndex := intInSlice(bracketCount, itemCount)
+		if sliceIndex > -1 {
+			processedJson.WriteString(string(jsonBody[cursor:(i - 1)]))
+			itemCount = append(itemCount[:sliceIndex],
+				itemCount[(sliceIndex+1):]...)
+			cursor = i
+		} else if i == len(jsonBody)-1 {
+			processedJson.WriteString(string(jsonBody[cursor:(i + 1)]))
+			break
+		}
 
-        if string(v) == "}" {
-            bracketCount = bracketCount - 1
-        // TODO: What happens when an incomplete response is returned.
-        } else if i < len(jsonBody) - (len(tag)+6) {
-            if string(jsonBody[i:i+(len(tag)+5)]) == "{\"" + tag + "\": " {
-                processedJson.WriteString( string(
-                    jsonBody[cursor:i] ) )
-                cursor = i + (len(tag)+5)
-                itemCount = append( itemCount, bracketCount )
-                bracketCount = bracketCount + 1
-            } else if string(v) == "{" {
-                bracketCount = bracketCount + 1
-            }
-        }
-    }
-    return processedJson.Bytes()
+		if string(v) == "}" {
+			bracketCount = bracketCount - 1
+			// TODO: What happens when an incomplete response is returned.
+		} else if i < len(jsonBody)-(len(tag)+6) {
+			if string(jsonBody[i:i+(len(tag)+5)]) == "{\""+tag+"\": " {
+				processedJson.WriteString(string(
+					jsonBody[cursor:i]))
+				cursor = i + (len(tag) + 5)
+				itemCount = append(itemCount, bracketCount)
+				bracketCount = bracketCount + 1
+			} else if string(v) == "{" {
+				bracketCount = bracketCount + 1
+			}
+		}
+	}
+	return processedJson.Bytes()
 }
-
 
 // Peeks at a standard XML response for paging indicators.
 // Vars:
@@ -224,15 +216,14 @@ func RemoveXmlTagFromJson( tag string, jsonBody []byte ) []byte {
 // responseKeys = The split list of keys to find the paging value.
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
-func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+func DefaultXmlPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
 
-    jsonResponse := XmlResponseProcess( response )
+	jsonResponse := XmlResponseProcess(response)
 
-    return DefaultJsonPagingPeek( jsonResponse, responseKeys, oldPageValue,
-        peekParams )
+	return DefaultJsonPagingPeek(jsonResponse, responseKeys, oldPageValue,
+		peekParams)
 
 }
-
 
 // Peeks at a standard JSON response for paging indicators.
 // Vars:
@@ -240,46 +231,45 @@ func DefaultXmlPagingPeek( response []byte, responseKeys []string, oldPageValue 
 // responseKeys = The split list of keys to find the paging value.
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
-func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+func DefaultJsonPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
 
-    if len(response) < 4 || response == nil {
-        return interface{}(nil), false
-    }
-    var responseMap map[string]interface{}
-    err := json.Unmarshal(response, &responseMap)
-    if err != nil {
-        var responseSlice []interface{}
-        err1 := json.Unmarshal(response, &responseSlice)
-        if err1 != nil {
-            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON (" + string(response) + ")",
-                err1)
-        } else {
-            LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
-                err)
-            return interface{}(nil), false
-        }
-    }
-    // New page value is nil.
-    var pageValue interface{}
-    // Loop through the key list and set pageValue to each successive key to
-    //   drill down.  We should never hit a list or a string (should always be
-    //   a map) until we reach this value since there should always only be one
-    //   per API response.
-    for _, v := range responseKeys {
-        if pageValue == nil {
-            pageValue = responseMap[v]
-        } else {
-            pageValue = pageValue.(map[string]interface{})[v]
-        }
-    }
+	if len(response) < 4 || response == nil {
+		return interface{}(nil), false
+	}
+	var responseMap map[string]interface{}
+	err := json.Unmarshal(response, &responseMap)
+	if err != nil {
+		var responseSlice []interface{}
+		err1 := json.Unmarshal(response, &responseSlice)
+		if err1 != nil {
+			LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON ("+string(response)+")",
+				err1)
+		} else {
+			LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
+				err)
+			return interface{}(nil), false
+		}
+	}
+	// New page value is nil.
+	var pageValue interface{}
+	// Loop through the key list and set pageValue to each successive key to
+	//   drill down.  We should never hit a list or a string (should always be
+	//   a map) until we reach this value since there should always only be one
+	//   per API response.
+	for _, v := range responseKeys {
+		if pageValue == nil {
+			pageValue = responseMap[v]
+		} else {
+			pageValue = pageValue.(map[string]interface{})[v]
+		}
+	}
 
-    if pageValue == oldPageValue {
-        pageValue = nil
-    }
-    return pageValue, ( pageValue != "" && pageValue != nil )
+	if pageValue == oldPageValue {
+		pageValue = nil
+	}
+	return pageValue, (pageValue != "" && pageValue != nil)
 
 }
-
 
 // Peeks at a standard JSON response for paging indicators.
 // Vars:
@@ -289,35 +279,34 @@ func DefaultJsonPagingPeek( response []byte, responseKeys []string, oldPageValue
 // peekParams   = Params specific to this function - expecting:
 //                [0] => Valid regex with paging param located in the first
 //                    subexpression group in ()s ex: <([^>]*)>; rel=\"next\"
-func RegexJsonPagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+func RegexJsonPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
 
-    re, err := regexp.Compile( peekParams[0] )
-    if err != nil {
-        LogFatal( "RegexJsonPagingPeek", "Invalid regex provided in YAML", err )
-    }
-    pagingValue, _ := DefaultJsonPagingPeek( response, responseKeys,
-        oldPageValue, peekParams )
+	re, err := regexp.Compile(peekParams[0])
+	if err != nil {
+		LogFatal("RegexJsonPagingPeek", "Invalid regex provided in YAML", err)
+	}
+	pagingValue, _ := DefaultJsonPagingPeek(response, responseKeys,
+		oldPageValue, peekParams)
 
-    switch reflect.TypeOf( pagingValue ).String() {
-        case "[]interface {}":
-            for _, v := range pagingValue.([]interface{}) {
-                // TODO: More robust handling here if we don't have a string.
-                submatches := re.FindStringSubmatch(v.(string))
-                if len(submatches) > 1 {
-                    return interface{}(submatches[1]), true
-                }
-            }
-        default: // pagingValue is likely string or nil
-            // TODO: More robust handling here if we don't have a string.
-            submatches := re.FindStringSubmatch(pagingValue.(string))
-            if len(submatches) > 1 {
-                return interface{}(submatches[1]), true
-            }
-    }
+	switch reflect.TypeOf(pagingValue).String() {
+	case "[]interface {}":
+		for _, v := range pagingValue.([]interface{}) {
+			// TODO: More robust handling here if we don't have a string.
+			submatches := re.FindStringSubmatch(v.(string))
+			if len(submatches) > 1 {
+				return interface{}(submatches[1]), true
+			}
+		}
+	default: // pagingValue is likely string or nil
+		// TODO: More robust handling here if we don't have a string.
+		submatches := re.FindStringSubmatch(pagingValue.(string))
+		if len(submatches) > 1 {
+			return interface{}(submatches[1]), true
+		}
+	}
 
-    return interface{}(nil), false
+	return interface{}(nil), false
 }
-
 
 // Peeks at a standard JSON response for paging indicators that need to be
 //    calculated.
@@ -331,159 +320,157 @@ func RegexJsonPagingPeek( response []byte, responseKeys []string, oldPageValue i
 //                [Y..Z] => Key parts for total results value key
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
-func CalculatePagingPeek( response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string ) ( interface{}, bool ) {
+func CalculatePagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
 
-    if len(responseKeys) < 4 {
-        LogFatal("CalculatePagingPeek",
-            "Unable to calculate paging without at least three keys", nil)
-    }
-    splitLengthKeys := strings.Split( responseKeys[0], "," )
+	if len(responseKeys) < 4 {
+		LogFatal("CalculatePagingPeek",
+			"Unable to calculate paging without at least three keys", nil)
+	}
+	splitLengthKeys := strings.Split(responseKeys[0], ",")
 
-    if len(splitLengthKeys) != 2 {
-        LogFatal("CalculatePagingPeek",
-            "Invalid length keys for paging calculation", nil)
-    }
-    pageKeySplit, err := strconv.Atoi( splitLengthKeys[0] )
-    if err != nil {
-        LogFatal("CalculatePagingPeek",
-            "Non integer length keys for paging calculation", nil)
-    }
+	if len(splitLengthKeys) != 2 {
+		LogFatal("CalculatePagingPeek",
+			"Invalid length keys for paging calculation", nil)
+	}
+	pageKeySplit, err := strconv.Atoi(splitLengthKeys[0])
+	if err != nil {
+		LogFatal("CalculatePagingPeek",
+			"Non integer length keys for paging calculation", nil)
+	}
 
-    perPageKeySplit, err := strconv.Atoi( splitLengthKeys[1] )
-    if err != nil {
-        LogFatal("CalculatePagingPeek",
-            "Non integer length keys for paging calculation", nil)
-    }
+	perPageKeySplit, err := strconv.Atoi(splitLengthKeys[1])
+	if err != nil {
+		LogFatal("CalculatePagingPeek",
+			"Non integer length keys for paging calculation", nil)
+	}
 
-    // Remove our calculated length values after using them.
-    responseKeys = responseKeys[1:]
+	// Remove our calculated length values after using them.
+	responseKeys = responseKeys[1:]
 
-    var responseMap map[string]interface{}
-    err = json.Unmarshal(response, &responseMap)
-    if err != nil {
-        var responseSlice []interface{}
-        err1 := json.Unmarshal(response, &responseSlice)
-        if err1 != nil {
-            LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
-                err)
-        } else {
-            LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
-                err)
-            return interface{}(nil), false
-        }
-    }
-    // New page value is nil.
-    // Ensure we got the key
-    //if _, ok := responseMap[responseKeys[0]]; ok {}
+	var responseMap map[string]interface{}
+	err = json.Unmarshal(response, &responseMap)
+	if err != nil {
+		var responseSlice []interface{}
+		err1 := json.Unmarshal(response, &responseSlice)
+		if err1 != nil {
+			LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
+				err)
+		} else {
+			LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
+				err)
+			return interface{}(nil), false
+		}
+	}
+	// New page value is nil.
+	// Ensure we got the key
+	//if _, ok := responseMap[responseKeys[0]]; ok {}
 
-    var pageValue, perPageValue, totalCountValue interface{}
-    // Loop through the key list and set pageValue to each successive key to
-    //   drill down.  We should never hit a list or a string (should always be
-    //   a map) until we reach this value since there should always only be one
-    //   per API response.
+	var pageValue, perPageValue, totalCountValue interface{}
+	// Loop through the key list and set pageValue to each successive key to
+	//   drill down.  We should never hit a list or a string (should always be
+	//   a map) until we reach this value since there should always only be one
+	//   per API response.
 
-    // Loop through the keys to find the total value.
-    for _, v := range responseKeys[pageKeySplit+perPageKeySplit:] {
-        if totalCountValue == nil {
-            totalCountValue = responseMap[v]
-        } else {
-            totalCountValue = totalCountValue.(map[string]interface{})[v]
-        }
-    }
+	// Loop through the keys to find the total value.
+	for _, v := range responseKeys[pageKeySplit+perPageKeySplit:] {
+		if totalCountValue == nil {
+			totalCountValue = responseMap[v]
+		} else {
+			totalCountValue = totalCountValue.(map[string]interface{})[v]
+		}
+	}
 
-    // Loop through the keys to find the per page value.
-    for _, v := range responseKeys[pageKeySplit:pageKeySplit+perPageKeySplit] {
-        if perPageValue == nil {
-            perPageValue = responseMap[v]
-        } else {
-            perPageValue = perPageValue.(map[string]interface{})[v]
-        }
-    }
+	// Loop through the keys to find the per page value.
+	for _, v := range responseKeys[pageKeySplit : pageKeySplit+perPageKeySplit] {
+		if perPageValue == nil {
+			perPageValue = responseMap[v]
+		} else {
+			perPageValue = perPageValue.(map[string]interface{})[v]
+		}
+	}
 
-    // If the per page value is >= total count, no more pages.
-    if totalCountValue == nil || perPageValue == nil ||
-          totalCountValue.(float64) <= perPageValue.(float64) {
-        return interface{}(nil), false
-    }
+	// If the per page value is >= total count, no more pages.
+	if totalCountValue == nil || perPageValue == nil ||
+		totalCountValue.(float64) <= perPageValue.(float64) {
+		return interface{}(nil), false
+	}
 
-    // Loop through the keys to find the current page value.
-    for _, v := range responseKeys[:pageKeySplit] {
-        if pageValue == nil {
-            pageValue = responseMap[v]
-        } else {
-            pageValue = pageValue.(map[string]interface{})[v]
-        }
-    }
+	// Loop through the keys to find the current page value.
+	for _, v := range responseKeys[:pageKeySplit] {
+		if pageValue == nil {
+			pageValue = responseMap[v]
+		} else {
+			pageValue = pageValue.(map[string]interface{})[v]
+		}
+	}
 
-    if pageValue != nil && perPageValue != nil && totalCountValue != nil {
-        if pageValue.(float64)*perPageValue.(float64) < totalCountValue.(float64) {
-            pageValue = pageValue.(float64) + 1
-        } else { // If we're over total count or equal, then it's done.
-            return interface{}(nil), false
-        }
-    }
+	if pageValue != nil && perPageValue != nil && totalCountValue != nil {
+		if pageValue.(float64)*perPageValue.(float64) < totalCountValue.(float64) {
+			pageValue = pageValue.(float64) + 1
+		} else { // If we're over total count or equal, then it's done.
+			return interface{}(nil), false
+		}
+	}
 
-    return pageValue, ( pageValue != "" && pageValue != nil )
+	return pageValue, (pageValue != "" && pageValue != nil)
 
 }
-
 
 // Takes a map of requests to their []byte responses, iterates through them to
 //    pull the desired data (and errors), and compiles the final result.
 // Vars:
 // apiResponseMap = A map of API requests made and their corresponding responses
-func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiRequest][]byte, jsonKeys []map[string]string ) []byte {
+func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequest][]byte, jsonKeys []map[string]string) []byte {
 
-    parsedStructure := make(map[string]interface{})
-    parsedErrorStructure := make(map[string]interface{})
+	parsedStructure := make(map[string]interface{})
+	parsedErrorStructure := make(map[string]interface{})
 
-    for request, response := range apiResponseMap {
+	for request, response := range apiResponseMap {
 
-        // Catch JSON slices that don't have a map at the root
-        var jsonSlice []interface{}
-        err := json.Unmarshal(response, &jsonSlice)
-        if err == nil {
-            LogWarn("DefaultJsonPostProcess", "JSON is a slice - building map.",
-                err)
-            // Maybe more efficient, but less robust than build and marshal?
-            response = append( []byte("{\"items\":"),
-                append( response, []byte("}") ... ) ... )
-            // Add our new key we created to the base key expected.
-            for i, v := range jsonKeys {
-                if v["api_call_uuid"] == request.Uuid {
-                    length, err := strconv.Atoi(v["key_count"])
-                    if err != nil {
-                        LogFatal("DefaultJsonPostProcess",
-                            "Non-integer key_count is invalid", err)
-                    }
-                    for ci := 0; ci < length; ci++ {
-                        keyString := "current_base_key_" + strconv.Itoa(ci)
-                        if _, ok := jsonKeys[i][keyString]; ok ||
-                              jsonKeys[i][keyString] == "" {
-                            jsonKeys[i][keyString] = "items"
-                        } else {
-                            jsonKeys[i][keyString] = "items." +
-                                jsonKeys[i][keyString]
-                        }
-                    }
-                    // Duplicated names aren't allowed, but do happen with sub-
-                    //    endpoints.  In which case, all other input fields
-                    //    like the current base key should be the same.
-                    break
-                }
-            }
-        }
-        structureVar, errorVar := ParsePostProcessedJson( request, jsonKeys,
-            response, parsedStructure, parsedErrorStructure )
-        parsedStructure = structureVar
-        parsedErrorStructure = errorVar
-    }
+		// Catch JSON slices that don't have a map at the root
+		var jsonSlice []interface{}
+		err := json.Unmarshal(response, &jsonSlice)
+		if err == nil {
+			LogWarn("DefaultJsonPostProcess", "JSON is a slice - building map.",
+				err)
+			// Maybe more efficient, but less robust than build and marshal?
+			response = append([]byte("{\"items\":"),
+				append(response, []byte("}")...)...)
+		}
+		// Add our new key we created to the base key expected.
+		for i, v := range jsonKeys {
+			if v["api_call_uuid"] == request.Uuid {
+				length, err := strconv.Atoi(v["key_count"])
+				if err != nil {
+					LogFatal("DefaultJsonPostProcess",
+						"Non-integer key_count is invalid", err)
+				}
+				for ci := 0; ci < length; ci++ {
+					keyString := "current_base_key_" + strconv.Itoa(ci)
+					if _, ok := jsonKeys[i][keyString]; ok ||
+						jsonKeys[i][keyString] == "" {
+						jsonKeys[i][keyString] = "items"
+					} else {
+						jsonKeys[i][keyString] = "items." +
+							jsonKeys[i][keyString]
+					}
+				}
+				// Duplicated names aren't allowed, but do happen with sub-
+				//    endpoints.  In which case, all other input fields
+				//    like the current base key should be the same.
+				break
+			}
+		}
+		structureVar, errorVar := ParsePostProcessedJson(request, jsonKeys,
+			response, parsedStructure, parsedErrorStructure)
+		parsedStructure = structureVar
+		parsedErrorStructure = errorVar
+	}
 
-    returnJson := CollapseJson( parsedStructure, parsedErrorStructure )
-    return returnJson
+	returnJson := CollapseJson(parsedStructure, parsedErrorStructure)
+	return returnJson
 
 }
-
 
 // Auth function for basic username/password auth implementations.  Takes a
 //    username and password and constructs the Authorization header.
@@ -492,17 +479,15 @@ func DefaultJsonPostProcess( apiResponseMap map[generic_structs.ComparableApiReq
 // authParams = JWT params in the order of:
 //              [0] => username
 //              [1] => password
-func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+func BasicAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 
-    apiRequest.FullRequest.SetBasicAuth(authParams[0], authParams[1])
+	apiRequest.FullRequest.SetBasicAuth(authParams[0], authParams[1])
 
-    return apiRequest
+	return apiRequest
 }
-
 
 // Removed in favor of simplicity - just use CustomHeaderAuth
 //func TokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest
-
 
 // Auth function for custom querystring auth implementations.  Takes an
 //    alternating list of keys/values and constructs the querystring.
@@ -511,32 +496,31 @@ func BasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gen
 // authParams = Auth params in any quantity, alternating key then value:
 //              [x] => header key
 //              [x+1] => header value
-func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+func CustomQuerystringAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 
-    if len(authParams) % 2 != 0 {
-        LogFatal("CustomQuerystringAuth",
-            "Invalid querystring params - must have a value for every key.",
-            nil)
-    }
+	if len(authParams)%2 != 0 {
+		LogFatal("CustomQuerystringAuth",
+			"Invalid querystring params - must have a value for every key.",
+			nil)
+	}
 
-    q := apiRequest.FullRequest.URL.Query()
-    for i := 0; i < len(authParams) - 1; i += 2 {
-        // Don't duplicate keys that are the same.
-        found := false
-        for _, v := range q[authParams[i]] {
-            if v == authParams[i+1] {
-                found = true
-            }
-        }
-        if !found {
-            q.Add( authParams[i], authParams[i+1] )
-        }
-    }
-    apiRequest.FullRequest.URL.RawQuery = q.Encode()
+	q := apiRequest.FullRequest.URL.Query()
+	for i := 0; i < len(authParams)-1; i += 2 {
+		// Don't duplicate keys that are the same.
+		found := false
+		for _, v := range q[authParams[i]] {
+			if v == authParams[i+1] {
+				found = true
+			}
+		}
+		if !found {
+			q.Add(authParams[i], authParams[i+1])
+		}
+	}
+	apiRequest.FullRequest.URL.RawQuery = q.Encode()
 
-    return apiRequest
+	return apiRequest
 }
-
 
 // Auth function for custom header auth implementations.  Takes an alternating
 //    list of keys/values and constructs the header.
@@ -545,28 +529,27 @@ func CustomQuerystringAuth( apiRequest generic_structs.ApiRequest, authParams []
 // authParams = Auth params in any quantity, alternating key then value:
 //              [x] => header key
 //              [x+1] => header value
-func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+func CustomHeaderAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 
-    if len(authParams) % 2 != 0 {
-        LogFatal("CustomHeaderAuth",
-            "Invalid header params - must have a value for every key.", nil)
-    }
-    for i := 0; i < len(authParams) - 1; i += 2 {
-        // Don't duplicate keys that are the same.
-        found := false
-        for _, v := range apiRequest.FullRequest.Header[authParams[i]] {
-            if v == authParams[i+1] {
-                found = true
-            }
-        }
-        if !found {
-            apiRequest.FullRequest.Header.Add( authParams[i], authParams[i+1] )
-        }
-    }
+	if len(authParams)%2 != 0 {
+		LogFatal("CustomHeaderAuth",
+			"Invalid header params - must have a value for every key.", nil)
+	}
+	for i := 0; i < len(authParams)-1; i += 2 {
+		// Don't duplicate keys that are the same.
+		found := false
+		for _, v := range apiRequest.FullRequest.Header[authParams[i]] {
+			if v == authParams[i+1] {
+				found = true
+			}
+		}
+		if !found {
+			apiRequest.FullRequest.Header.Add(authParams[i], authParams[i+1])
+		}
+	}
 
-    return apiRequest
+	return apiRequest
 }
-
 
 // Auth function for custom header auth implementations that also require basic
 //    auth.  Takes the basic auth keys username/password and an alternating
@@ -578,14 +561,13 @@ func CustomHeaderAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 //              [1] => password
 //              [x] => header key
 //              [x+1] => header value
-func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+func CustomHeaderAndBasicAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 
-    apiRequest = BasicAuth( apiRequest, authParams[:2] )
-    apiRequest = CustomHeaderAuth( apiRequest, authParams[2:] )
+	apiRequest = BasicAuth(apiRequest, authParams[:2])
+	apiRequest = CustomHeaderAuth(apiRequest, authParams[2:])
 
-    return apiRequest
+	return apiRequest
 }
-
 
 // Auth function for session auth implementations.  Takes provided params and
 //    retrieves the session token from the designated key then updates the
@@ -599,64 +581,63 @@ func CustomHeaderAndBasicAuth( apiRequest generic_structs.ApiRequest, authParams
 //              [3] => Session token URL
 //              [x] => Session key
 //              [x+1] => Session value
-func SessionTokenAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
+func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 
-    if len(authParams[4:]) % 2 != 0 {
-        LogFatal("SessionTokenAuth",
-            "Invalid header params - must have a value for every key.", nil)
-    }
+	if len(authParams[4:])%2 != 0 {
+		LogFatal("SessionTokenAuth",
+			"Invalid header params - must have a value for every key.", nil)
+	}
 
-    bodyMap := map[string]string{}
+	bodyMap := map[string]string{}
 
-    if len(authParams) > 4 {
-        for i := 4; i < len(authParams) - 1; i += 2 {
-            bodyMap[authParams[i]] = authParams[i+1]
-        }
-    }
+	if len(authParams) > 4 {
+		for i := 4; i < len(authParams)-1; i += 2 {
+			bodyMap[authParams[i]] = authParams[i+1]
+		}
+	}
 
-    jsonString, err := json.Marshal(bodyMap)
-    if err != nil {
-        LogFatal("SessionTokenAuth", "Error marshaling JSON", err)
-    }
+	jsonString, err := json.Marshal(bodyMap)
+	if err != nil {
+		LogFatal("SessionTokenAuth", "Error marshaling JSON", err)
+	}
 
-    // TODO: Break this out to allow URL encoded session function as well
-    resp, err := http.Post( authParams[3], "application/json", bytes.NewBuffer(jsonString) )
-    if err != nil {
-        LogFatal("SessionTokenAuth", "Error running the session POST request",
-            err)
-    }
-    defer resp.Body.Close()
-    // TODO: Handle failed connections better / handle retry? Golang "Context"?
-    // i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
-    // [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
+	// TODO: Break this out to allow URL encoded session function as well
+	resp, err := http.Post(authParams[3], "application/json", bytes.NewBuffer(jsonString))
+	if err != nil {
+		LogFatal("SessionTokenAuth", "Error running the session POST request",
+			err)
+	}
+	defer resp.Body.Close()
+	// TODO: Handle failed connections better / handle retry? Golang "Context"?
+	// i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
+	// [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
 
-    body, err := ioutil.ReadAll( resp.Body )
-    if err != nil {
-        LogFatal("SessionTokenAuth", "Error reading request body", err)
-    }
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		LogFatal("SessionTokenAuth", "Error reading request body", err)
+	}
 
-    var jsonResponseMap interface{}
-    err = json.Unmarshal(body, &jsonResponseMap)
-    if err != nil {
-        LogFatal("SessionTokenAuth", "Unable to unmarshal session JSON",
-            err)
-    }
+	var jsonResponseMap interface{}
+	err = json.Unmarshal(body, &jsonResponseMap)
+	if err != nil {
+		LogFatal("SessionTokenAuth", "Unable to unmarshal session JSON",
+			err)
+	}
 
-    var tokenValue string
-    for _, v := range strings.Split( authParams[0], "." ) {
-        if reflect.TypeOf(jsonResponseMap.(map[string]interface{})[v]).String() == "string" {
-            tokenValue = jsonResponseMap.(map[string]interface{})[v].(string)
-        } else {
-            jsonResponseMap = jsonResponseMap.(map[string]interface{})[v]
-        }
-    }
+	var tokenValue string
+	for _, v := range strings.Split(authParams[0], ".") {
+		if reflect.TypeOf(jsonResponseMap.(map[string]interface{})[v]).String() == "string" {
+			tokenValue = jsonResponseMap.(map[string]interface{})[v].(string)
+		} else {
+			jsonResponseMap = jsonResponseMap.(map[string]interface{})[v]
+		}
+	}
 
-    customParams := authParams[1:3]
-    customParams[1] = customParams[1] + tokenValue
+	customParams := authParams[1:3]
+	customParams[1] = customParams[1] + tokenValue
 
-    return CustomHeaderAuth( apiRequest, customParams )
+	return CustomHeaderAuth(apiRequest, customParams)
 }
-
 
 // Auth function for Oauth 2 2-legged implementations.  Takes Oauth params and
 //    preps the http client attached to the ApiRequest.
@@ -669,27 +650,27 @@ func SessionTokenAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 //              [3] => token url
 //              [4] => endpoint params (string with ":" key/value separator and
 //                     "," between entries => e.g. x:y,x:z,a:b)
-func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
-    values := url.Values{}
-    for _, v := range strings.Split( authParams[4], "," ) {
-        colonSplit := strings.Index( v, ":" )
-        if colonSplit < 0 {
-            LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
-        }
-        values.Add( v[:colonSplit], v[colonSplit+1:] )
-    }
-    cfg := &clientcredentials.Config{
-        ClientID: authParams[0],
-        ClientSecret: authParams[1],
-        Scopes: strings.Split( authParams[2], "," ),
-        TokenURL: authParams[3],
-        EndpointParams: values,
-    }
+func Oauth2TwoLegAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
+	values := url.Values{}
+	for _, v := range strings.Split(authParams[4], ",") {
+		colonSplit := strings.Index(v, ":")
+		if colonSplit < 0 {
+			LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
+		}
+		values.Add(v[:colonSplit], v[colonSplit+1:])
+	}
+	cfg := &clientcredentials.Config{
+		ClientID:       authParams[0],
+		ClientSecret:   authParams[1],
+		Scopes:         strings.Split(authParams[2], ","),
+		TokenURL:       authParams[3],
+		EndpointParams: values,
+	}
 
-    ctx := context.Background()
-    apiRequest.Client = cfg.Client(ctx)
+	ctx := context.Background()
+	apiRequest.Client = cfg.Client(ctx)
 
-    return apiRequest
+	return apiRequest
 }
 
 // Auth function for JWT implementations.  Takes JWT params and preps the http
@@ -702,24 +683,23 @@ func Oauth2TwoLegAuth( apiRequest generic_structs.ApiRequest, authParams []strin
 //              [2] => private key id
 //              [3] => scopes (comma delimited string)
 //              [4] => token url
-func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) generic_structs.ApiRequest {
-    cfg := &jwt.Config{
-        Email: authParams[0],
-        PrivateKey: []byte(authParams[1]),
-        PrivateKeyID: authParams[2],
-        Scopes: strings.Split( authParams[3], "," ),
-        TokenURL: authParams[4],
-    }
-    // TODO: No blanks.
-    //if cfg.TokenURL == "" {
-    //}
+func JwtAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
+	cfg := &jwt.Config{
+		Email:        authParams[0],
+		PrivateKey:   []byte(authParams[1]),
+		PrivateKeyID: authParams[2],
+		Scopes:       strings.Split(authParams[3], ","),
+		TokenURL:     authParams[4],
+	}
+	// TODO: No blanks.
+	//if cfg.TokenURL == "" {
+	//}
 
-    ctx := context.Background()
-    apiRequest.Client = cfg.Client(ctx)
+	ctx := context.Background()
+	apiRequest.Client = cfg.Client(ctx)
 
-    return apiRequest
+	return apiRequest
 }
-
 
 // Used at build-time for plugins to actually expand the variables in our new
 //    YAML files.
@@ -730,24 +710,23 @@ func JwtAuth( apiRequest generic_structs.ApiRequest, authParams []string ) gener
 // depth     = Count of recursion depth.
 // listIndex = Count of variable being expanded from the []string of vars.
 // varValues = Values being replaced.
-func populateSliceRecursion( rawYaml string, varsData map[string][]string, indexes []string, depth int, listIndex int, varValues map[string]string, returnSlice [][]byte ) [][]byte {
-    if depth == len(indexes) - 1 { // If we're at the end of the keys list.
-        varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
-        newYaml := rawYaml
-        for k, v := range varValues {
-            newYaml = strings.Replace( newYaml, "{{" + k + "}}", v, -1 )
-            returnSlice = append( returnSlice, []byte(newYaml) )
-        }
-    } else { // If we have more keys to go.
-        varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
-        for i, _ := range varsData[indexes[depth + 1]] {
-            returnSlice = append( returnSlice, populateSliceRecursion( rawYaml, varsData, indexes, depth + 1, i, varValues, returnSlice ) ... )
-        }
-    }
+func populateSliceRecursion(rawYaml string, varsData map[string][]string, indexes []string, depth int, listIndex int, varValues map[string]string, returnSlice [][]byte) [][]byte {
+	if depth == len(indexes)-1 { // If we're at the end of the keys list.
+		varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
+		newYaml := rawYaml
+		for k, v := range varValues {
+			newYaml = strings.Replace(newYaml, "{{"+k+"}}", v, -1)
+			returnSlice = append(returnSlice, []byte(newYaml))
+		}
+	} else { // If we have more keys to go.
+		varValues[indexes[depth]] = varsData[indexes[depth]][listIndex]
+		for i, _ := range varsData[indexes[depth+1]] {
+			returnSlice = append(returnSlice, populateSliceRecursion(rawYaml, varsData, indexes, depth+1, i, varValues, returnSlice)...)
+		}
+	}
 
-    return returnSlice
+	return returnSlice
 }
-
 
 // Recursively drill down into JSON to find the value of a specific key set
 //    (e.g. {"X": { "Y": { "Z": [ 1, 2, 3 ] } } } with key set "X.Y.Z" would
@@ -756,63 +735,62 @@ func populateSliceRecursion( rawYaml string, varsData map[string][]string, index
 // kSet         = Key set being searched for.
 // count        = Recursive depth count.
 // subStructure = Structure being plumbed.
-func ParseJsonSubStructure( kSet []string, count int, subStructure interface{} ) []interface{} {
-    // Start by marshaling our interface{} into a map which everything in JSON
-    //    should be if there are more subkeys.
-    var subStructureMap map[string]interface{}
-    // If it isn't a map, it's a list of maps, so we'll create one here to use
-    //    if necessary.
-    subStructureListMap := []map[string]interface{}{}
+func ParseJsonSubStructure(kSet []string, count int, subStructure interface{}) []interface{} {
+	// Start by marshaling our interface{} into a map which everything in JSON
+	//    should be if there are more subkeys.
+	var subStructureMap map[string]interface{}
+	// If it isn't a map, it's a list of maps, so we'll create one here to use
+	//    if necessary.
+	subStructureListMap := []map[string]interface{}{}
 
-    marshaledInterface, err := json.Marshal(subStructure)
-    if err != nil {
-        LogFatal("ParseJsonSubStructure", "Error marshaling JSON", err)
-        return nil
-    }
+	marshaledInterface, err := json.Marshal(subStructure)
+	if err != nil {
+		LogFatal("ParseJsonSubStructure", "Error marshaling JSON", err)
+		return nil
+	}
 
-    err = json.Unmarshal(marshaledInterface, &subStructureMap)
-    if err != nil {
-        if string(marshaledInterface) != "\"\"" {
-            err = json.Unmarshal(marshaledInterface, &subStructureListMap)
-            if err != nil {
-                // TODO: Failure shouldn't wipe the map.  Really should
-                //    unmarshal elsewhere and check.
-                LogFatal("ParseJsonSubStructure", "Error unmarshaling JSON", err)
-            }
-        }
-    } else { // Wasn't a list? Append it to the blank to make a list.
-        subStructureListMap = append( subStructureListMap, subStructureMap )
-    }
+	err = json.Unmarshal(marshaledInterface, &subStructureMap)
+	if err != nil {
+		if string(marshaledInterface) != "\"\"" {
+			err = json.Unmarshal(marshaledInterface, &subStructureListMap)
+			if err != nil {
+				// TODO: Failure shouldn't wipe the map.  Really should
+				//    unmarshal elsewhere and check.
+				LogFatal("ParseJsonSubStructure", "Error unmarshaling JSON", err)
+			}
+		}
+	} else { // Wasn't a list? Append it to the blank to make a list.
+		subStructureListMap = append(subStructureListMap, subStructureMap)
+	}
 
-    finalInterfaceList := []interface{}{}
-    for _, v := range subStructureListMap {
-        if count == len(kSet) - 1 {
-            // We're on the last piece of the key here.
-            blankInterfaceList := []interface{}{}
-            if reflect.TypeOf(v[kSet[count]]) ==
-                  reflect.TypeOf(blankInterfaceList) {
-                // If we do have a list, then return it.
-                finalInterfaceList = append( finalInterfaceList,
-                    v[kSet[count]].([]interface{})...)
-            } else if !reflect.DeepEqual( v[kSet[count]], "" ) &&
-                  v[kSet[count]] != nil {
-                // If we aren't a nil string (or nil), then we have a map that
-                //    should be transformed into a list.
-                finalInterfaceList = append( finalInterfaceList,
-                    v[kSet[count]] )
-            }
-        } else {
-            // We don't want [ <nil> ], so just don't append if it's nil.
-            if v[kSet[count]] != nil {
-                finalInterfaceList = append(
-                    finalInterfaceList, ParseJsonSubStructure(
-                        kSet, count + 1, v[kSet[count]] )... )
-            }
-        }
-    }
-    return finalInterfaceList
+	finalInterfaceList := []interface{}{}
+	for _, v := range subStructureListMap {
+		if count == len(kSet)-1 {
+			// We're on the last piece of the key here.
+			blankInterfaceList := []interface{}{}
+			if reflect.TypeOf(v[kSet[count]]) ==
+				reflect.TypeOf(blankInterfaceList) {
+				// If we do have a list, then return it.
+				finalInterfaceList = append(finalInterfaceList,
+					v[kSet[count]].([]interface{})...)
+			} else if !reflect.DeepEqual(v[kSet[count]], "") &&
+				v[kSet[count]] != nil {
+				// If we aren't a nil string (or nil), then we have a map that
+				//    should be transformed into a list.
+				finalInterfaceList = append(finalInterfaceList,
+					v[kSet[count]])
+			}
+		} else {
+			// We don't want [ <nil> ], so just don't append if it's nil.
+			if v[kSet[count]] != nil {
+				finalInterfaceList = append(
+					finalInterfaceList, ParseJsonSubStructure(
+						kSet, count+1, v[kSet[count]])...)
+			}
+		}
+	}
+	return finalInterfaceList
 }
-
 
 // Adds a data item at the specified key set within the JSON structure.  (e.g.
 //    adding [ 4 ] to {"X": { "Y": { "Z": [ 1, 2, 3 ] } } } with key set "X.Y.Z"
@@ -824,62 +802,57 @@ func ParseJsonSubStructure( kSet []string, count int, subStructure interface{} )
 // newStructure     = Structure being added.
 // force            = Forces the addition of an empty structure if
 //                    currentStructure is empty or nil.
-func addJsonKeyStructure( kSet []string, count int, currentStructure map[string]interface{}, newStructure []interface{}, force bool ) interface{} {
-    if !force && len(newStructure) == 0 {
-        return marshalToInterface( currentStructure )
-    }
+func addJsonKeyStructure(kSet []string, count int, currentStructure map[string]interface{}, newStructure []interface{}, force bool) interface{} {
+	if !force && len(newStructure) == 0 {
+		return marshalToInterface(currentStructure)
+	}
 
-
-    if count == len(kSet) - 1 {
-        if _, ok := currentStructure[kSet[count]]; !ok {
-            currentStructure[kSet[count]] = marshalToInterface( newStructure )
-        } else { // if key does exist in current substructure
-            if len(newStructure) > 0 {
-                currentStructure[kSet[count]] = marshalToInterface( append(
-                    currentStructure[kSet[count]].(
-                    []interface{}), newStructure... ) )
-            }
-        }
-        return marshalToInterface( currentStructure )
-    } else {
-        if _, ok := currentStructure[kSet[count]]; !ok {
-            currentStructure[kSet[count]] = marshalToInterface(
-                addJsonKeyStructure(
-                kSet, count + 1, make(map[string]interface{}), newStructure, force ) )
-        } else {
-            if len(newStructure) > 0 {
-                currentStructure[kSet[count]] = marshalToInterface(
-                    addJsonKeyStructure(
-                    kSet, count + 1, currentStructure[kSet[count]].(
-                    map[string]interface{}), newStructure, force ) )
-                    // TODO: Catch panics here if they try to put errors in with
-                    //    different key depths.
-            }
-        }
-        return marshalToInterface( currentStructure )
-    }
+	if count == len(kSet)-1 {
+		if _, ok := currentStructure[kSet[count]]; !ok {
+			currentStructure[kSet[count]] = marshalToInterface(newStructure)
+		} else { // if key does exist in current substructure
+			if len(newStructure) > 0 {
+				currentStructure[kSet[count]] = marshalToInterface(append(
+					currentStructure[kSet[count]].([]interface{}), newStructure...))
+			}
+		}
+		return marshalToInterface(currentStructure)
+	} else {
+		if _, ok := currentStructure[kSet[count]]; !ok {
+			currentStructure[kSet[count]] = marshalToInterface(
+				addJsonKeyStructure(
+					kSet, count+1, make(map[string]interface{}), newStructure, force))
+		} else {
+			if len(newStructure) > 0 {
+				currentStructure[kSet[count]] = marshalToInterface(
+					addJsonKeyStructure(
+						kSet, count+1, currentStructure[kSet[count]].(map[string]interface{}), newStructure, force))
+				// TODO: Catch panics here if they try to put errors in with
+				//    different key depths.
+			}
+		}
+		return marshalToInterface(currentStructure)
+	}
 }
-
 
 // A simple Marshal/Unmarshal to force the structure into a JSON-friendly
 //    format.
-func marshalToInterface( data interface{} ) interface{} {
-    jsonIntermediary, err := json.Marshal(data)
-    if err != nil {
-        LogFatal("marshalToInterface", "Unable to Marshal interface to JSON", err)
-    }
-    var typeParsedStructure interface{}
-    json.Unmarshal([]byte(jsonIntermediary), &typeParsedStructure)
-    return typeParsedStructure
+func marshalToInterface(data interface{}) interface{} {
+	jsonIntermediary, err := json.Marshal(data)
+	if err != nil {
+		LogFatal("marshalToInterface", "Unable to Marshal interface to JSON", err)
+	}
+	var typeParsedStructure interface{}
+	json.Unmarshal([]byte(jsonIntermediary), &typeParsedStructure)
+	return typeParsedStructure
 }
 
-
 // Finds where a specific int exists in an []int.
-func intInSlice( a int, list []int ) int {
-    for i, b := range list {
-        if b == a {
-            return i
-        }
-    }
-    return -1
+func intInSlice(a int, list []int) int {
+	for i, b := range list {
+		if b == a {
+			return i
+		}
+	}
+	return -1
 }

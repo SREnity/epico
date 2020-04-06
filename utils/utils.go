@@ -447,12 +447,8 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 				}
 				for ci := 0; ci < length; ci++ {
 					keyString := "current_base_key_" + strconv.Itoa(ci)
-					if _, ok := jsonKeys[i][keyString]; ok ||
-						jsonKeys[i][keyString] == "" {
+					if val, ok := jsonKeys[i][keyString]; ok && val == "" {
 						jsonKeys[i][keyString] = "items"
-					} else {
-						jsonKeys[i][keyString] = "items." +
-							jsonKeys[i][keyString]
 					}
 				}
 				// Duplicated names aren't allowed, but do happen with sub-
@@ -461,6 +457,7 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 				break
 			}
 		}
+
 		structureVar, errorVar := ParsePostProcessedJson(request, jsonKeys,
 			response, parsedStructure, parsedErrorStructure)
 		parsedStructure = structureVar

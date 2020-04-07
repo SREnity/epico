@@ -116,10 +116,14 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 				aps = api.AuthParams
 			} else {
 				cliCount := 0
-				for i, v := range api.AuthParams {
-					if v == "{{}}" {
-						api.AuthParams[i] = authParams[cliCount]
-						cliCount += 1
+				for i := range api.AuthParams {
+					for {
+						if !strings.Contains(api.AuthParams[i], "{{}}") {
+							break
+						}
+
+						api.AuthParams[i] = strings.Replace(api.AuthParams[i], "{{}}", authParams[cliCount], 1)
+						cliCount++
 					}
 				}
 				aps = api.AuthParams

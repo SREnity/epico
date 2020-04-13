@@ -3,6 +3,7 @@ package epico
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"plugin"
 	"reflect"
@@ -454,8 +455,13 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			reflect.ValueOf(rootSettingsData.AuthParams))
 		finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
 			requestValue)
-		response, responseHeaders := runApiRequest(
+		statusCode, response, responseHeaders := runApiRequest(
 			finalRequest[0].Interface().(generic_structs.ApiRequest))
+		if statusCode != 200 {
+			log.Printf("(Epico) Expected 200, got %d\n", statusCode)
+			continue
+		}
+
 		comRequest := newApiRequest.ToComparableApiRequest()
 		comRequest.Uuid = newUuid.String()
 		// If we've done a request to this endpoint before, append the
@@ -557,8 +563,11 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				reflect.ValueOf(rootSettingsData.AuthParams))
 			newFinalRequest := reflect.ValueOf(
 				(**PluginAuthFunction)).Call(newRequestValue)
-			newResponse, newResponseHeaders := runApiRequest(
+			newStatusCode, newResponse, newResponseHeaders := runApiRequest(
 				newFinalRequest[0].Interface().(generic_structs.ApiRequest))
+			if newStatusCode != 200 {
+				log.Printf("(Epico) Expected new status 200, got %d\n", newStatusCode)
+			}
 
 			comRequest = nextApiRequest.ToComparableApiRequest()
 			comRequest.Uuid = newUuid.String()
@@ -671,7 +680,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 	return responseList, jsonKeys
 }
 
-func runApiRequest(apiRequest generic_structs.ApiRequest) ([]byte, []byte) {
+func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) {
 
 	var client *http.Client
 	if apiRequest.Client == nil {
@@ -706,6 +715,6 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) ([]byte, []byte) {
 	//utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
 	//utils.LogWarn("Response", string(body)+"\n\n", nil)
 
-	return body, headers
+	return resp.StatusCode, body, headers
 
 }

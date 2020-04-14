@@ -2,11 +2,13 @@ package epico
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"plugin"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -293,6 +295,36 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				QueryString: make(map[string][]string),
 				Header:      make(map[string][]string),
 				Body:        make(map[string][]string),
+			}
+		}
+
+		timeRegex, err := regexp.Compile("^{{time:(\\-?.+)}}$")
+		if err != nil {
+			utils.LogFatal("runThroughEndpoints", "Failed to parse time regex", err)
+		}
+
+		for k, v := range ep.Params.QueryString {
+			for index, value := range v {
+				if !strings.Contains(value, "{{") {
+					continue
+				}
+
+				if strings.Contains(value, "{{time:") {
+					matches := timeRegex.FindStringSubmatch(value)
+					if matches == nil || len(matches[1]) == 0 {
+						utils.LogFatal("runThroughEndpoints", fmt.Sprintf("Invalid param value: %s", value), nil)
+					}
+					if matches[1] == "now" {
+						ep.Params.QueryString[k][index] = strconv.Itoa(int(time.Now().Unix()))
+						continue
+					}
+
+					duration, err := time.ParseDuration(matches[1])
+					if err != nil {
+						utils.LogFatal("runThroughEndpoints", fmt.Sprintf("Failed to parse duration %s", value), err)
+					}
+					ep.Params.QueryString[k][index] = strconv.Itoa(int(time.Now().Add(duration).Unix()))
+				}
 			}
 		}
 

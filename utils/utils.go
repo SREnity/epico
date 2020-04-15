@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -610,6 +611,12 @@ func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string
 			err)
 	}
 	defer resp.Body.Close()
+
+	// TODO: Use a better technique instead of raising an error
+	if resp.StatusCode != 200 {
+		LogFatal("SessionTokenAuth", fmt.Sprintf("Expected response status 200, got %d", resp.StatusCode), nil)
+	}
+
 	// TODO: Handle failed connections better / handle retry? Golang "Context"?
 	// i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
 	// [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]

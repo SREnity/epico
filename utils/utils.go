@@ -286,8 +286,11 @@ func RegexJsonPagingPeek(response []byte, responseKeys []string, oldPageValue in
 	if err != nil {
 		LogFatal("RegexJsonPagingPeek", "Invalid regex provided in YAML", err)
 	}
-	pagingValue, _ := DefaultJsonPagingPeek(response, responseKeys,
+	pagingValue, valueIsPresent := DefaultJsonPagingPeek(response, responseKeys,
 		oldPageValue, peekParams)
+	if !valueIsPresent {
+		return interface{}(nil), false
+	}
 
 	switch reflect.TypeOf(pagingValue).String() {
 	case "[]interface {}":

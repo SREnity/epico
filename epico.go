@@ -154,6 +154,7 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 				Plugin:       api.Plugin,
 				AuthParams:   aps,
 				PagingParams: paps,
+				GlobalVars:   api.GlobalVars,
 			}
 
 			// Load the plugin and functions for this config file.
@@ -237,7 +238,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 	for _, ep := range endpoints {
 		// Clone and adjust settings map
 		var name string
-		var cbk, dbk, cek, dek []string
+		var currentBaseKey, desiredBaseKey, currentErrorKey, desiredErrorKey []string
 		var vars, paging map[string]string
 		params := generic_structs.ApiParams{}
 
@@ -248,10 +249,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		} else {
 			vars = make(map[string]string)
 		}
-		epSubs := false
+		doEndpointSubs := false
 		if len(ep.Vars) != 0 {
-			epSubs = true
+			doEndpointSubs = true
 			for k, v := range ep.Vars {
+				vars[k] = v
+			}
+		}
+		if len(rootSettingsData.GlobalVars) > 0 {
+			doEndpointSubs = true
+			for k, v := range rootSettingsData.GlobalVars {
 				vars[k] = v
 			}
 		}
@@ -267,24 +274,24 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			paging = rootSettingsData.Paging
 		}
 		if len(ep.CurrentBaseKey) > 0 {
-			cbk = ep.CurrentBaseKey
+			currentBaseKey = ep.CurrentBaseKey
 		} else {
-			cbk = []string(nil)
+			currentBaseKey = []string(nil)
 		}
 		if len(ep.DesiredBaseKey) > 0 {
-			dbk = ep.DesiredBaseKey
+			desiredBaseKey = ep.DesiredBaseKey
 		} else {
-			dbk = []string(nil)
+			desiredBaseKey = []string(nil)
 		}
 		if len(ep.CurrentErrorKey) > 0 {
-			cek = ep.CurrentErrorKey
+			currentErrorKey = ep.CurrentErrorKey
 		} else {
-			cek = []string(nil)
+			currentErrorKey = []string(nil)
 		}
 		if len(ep.DesiredErrorKey) > 0 {
-			dek = ep.DesiredErrorKey
+			desiredErrorKey = ep.DesiredErrorKey
 		} else {
-			dek = []string(nil)
+			desiredErrorKey = []string(nil)
 		}
 		if len(ep.Params.QueryString) != 0 ||
 			len(ep.Params.Body) != 0 ||
@@ -345,23 +352,24 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		}
 
 		// If we have substitution vars, do the substitutions.
-		if epSubs {
-			for k, v := range ep.Vars {
-				if len(cbk) != len(dbk) || len(cbk) != len(cek) ||
-					len(cbk) != len(dek) {
+		if doEndpointSubs {
+			for k, v := range vars {
+				if len(currentBaseKey) != len(desiredBaseKey) || len(currentErrorKey) != len(desiredErrorKey) {
 					utils.LogFatal("PullApiData",
 						"Current and desired key lists must be the same length.", nil)
 				} else {
 					name = strings.Replace(name, "{{"+k+"}}", v,
 						-1)
-					for i, _ := range cbk {
-						cbk[i] = strings.Replace(cbk[i],
+					for i := range currentBaseKey {
+						currentBaseKey[i] = strings.Replace(currentBaseKey[i],
 							"{{"+k+"}}", v, -1)
-						dbk[i] = strings.Replace(dbk[i],
+						desiredBaseKey[i] = strings.Replace(desiredBaseKey[i],
 							"{{"+k+"}}", v, -1)
-						cek[i] = strings.Replace(cek[i],
+					}
+					for i := range currentErrorKey {
+						currentErrorKey[i] = strings.Replace(currentErrorKey[i],
 							"{{"+k+"}}", v, -1)
-						dek[i] = strings.Replace(dek[i],
+						desiredErrorKey[i] = strings.Replace(desiredErrorKey[i],
 							"{{"+k+"}}", v, -1)
 					}
 					for pk, pv := range params.Header {
@@ -386,8 +394,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 					}
 					ep.Endpoint = strings.Replace(ep.Endpoint,
 						"{{"+k+"}}", v, -1)
-					if len(additionalParams[ep.Name]) > 0 && len(additionalParams[ep.Name]["var_params"]) > 0 {
-						for varKey, varValue := range additionalParams[ep.Name]["var_params"] {
+					if len(additionalParams["*"]) > 0 && len(additionalParams["*"]["var_params"]) > 0 {
+						for varKey, varValue := range additionalParams["*"]["var_params"] {
 							if strings.ToLower(varKey) == strings.ToLower(k) {
 								ep.Endpoint = strings.Replace(ep.Endpoint, strings.ToUpper(k), varValue, -1)
 							}
@@ -423,12 +431,14 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		// Allowing for multiple base keys and error keys breaks request
 		//    comparability, so we need to add them to our extra keyset
 		//    instead for usage later.
-		newKeySet["key_count"] = strconv.Itoa(len(cbk))
-		for i, _ := range cbk {
-			newKeySet["current_base_key_"+strconv.Itoa(i)] = cbk[i]
-			newKeySet["desired_base_key_"+strconv.Itoa(i)] = dbk[i]
-			newKeySet["current_error_key_"+strconv.Itoa(i)] = cek[i]
-			newKeySet["desired_error_key_"+strconv.Itoa(i)] = dek[i]
+		newKeySet["key_count"] = strconv.Itoa(len(currentBaseKey))
+		for i := range currentBaseKey {
+			newKeySet["current_base_key_"+strconv.Itoa(i)] = currentBaseKey[i]
+			newKeySet["desired_base_key_"+strconv.Itoa(i)] = desiredBaseKey[i]
+		}
+		for i := range currentErrorKey {
+			newKeySet["current_error_key_"+strconv.Itoa(i)] = currentErrorKey[i]
+			newKeySet["desired_error_key_"+strconv.Itoa(i)] = desiredErrorKey[i]
 		}
 
 		// TODO: This seems dreadfully inefficient...
@@ -454,10 +464,10 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				Paging: paging,
 			},
 			Endpoint:        ep.Endpoint,
-			CurrentBaseKey:  cbk,
-			DesiredBaseKey:  dbk,
-			CurrentErrorKey: cek,
-			DesiredErrorKey: dek,
+			CurrentBaseKey:  currentBaseKey,
+			DesiredBaseKey:  desiredBaseKey,
+			CurrentErrorKey: currentErrorKey,
+			DesiredErrorKey: desiredErrorKey,
 			Params:          params,
 			FullRequest:     tempRequest,
 		}
@@ -490,7 +500,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		statusCode, response, responseHeaders := runApiRequest(
 			finalRequest[0].Interface().(generic_structs.ApiRequest))
 		if statusCode != 200 {
-			log.Printf("(Epico) Expected 200, got %d\n", statusCode)
+			log.Printf("(Epico) [%s] Expected 200, got %d\n", ep.Name, statusCode)
 			continue
 		}
 
@@ -680,9 +690,12 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			pagingData := finalJsonResponse[0].Bytes()
 
 			responseKeys = strings.Split(key, ".")
+			var unparsedArrayStructure []map[string]interface{}
 			var unparsedStructure map[string]interface{}
-			err = json.Unmarshal(pagingData, &unparsedStructure)
-			if err != nil {
+			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err == nil {
+				// If we're here, it means that we got an array
+				unparsedStructure = unparsedArrayStructure[0]
+			} else if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
 				utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
 			}
 
@@ -694,7 +707,22 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				for _, value := range keyValues {
 					var newSubEp generic_structs.ApiEndpoint
 					newSubEp = endpoint.Copy()
-					newSubEp.Vars["endpoint_key"] = value.(string)
+					var endpointKey string
+					switch tp := value.(type) {
+					case string:
+						endpointKey = value.(string)
+					case float64:
+						endpointKey = strconv.FormatFloat(value.(float64), 'f', -1, 64)
+					case float32:
+						endpointKey = strconv.FormatFloat(float64(value.(float32)), 'f', -1, 32)
+					case int:
+						endpointKey = strconv.Itoa(value.(int))
+					case int64:
+						endpointKey = strconv.FormatInt(value.(int64), 10)
+					default:
+						utils.LogFatal("(Epico:SubEndpoints:EndpointKey)", fmt.Sprintf("Unrecognized value type: %#v", tp), nil)
+					}
+					newSubEp.Vars["endpoint_key"] = endpointKey
 					epHolder = append(epHolder, newSubEp)
 				}
 			}

@@ -463,13 +463,14 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				Vars:   vars,
 				Paging: paging,
 			},
-			Endpoint:        ep.Endpoint,
-			CurrentBaseKey:  currentBaseKey,
-			DesiredBaseKey:  desiredBaseKey,
-			CurrentErrorKey: currentErrorKey,
-			DesiredErrorKey: desiredErrorKey,
-			Params:          params,
-			FullRequest:     tempRequest,
+			Endpoint:          ep.Endpoint,
+			CurrentBaseKey:    currentBaseKey,
+			DesiredBaseKey:    desiredBaseKey,
+			CurrentErrorKey:   currentErrorKey,
+			DesiredErrorKey:   desiredErrorKey,
+			Params:            params,
+			FullRequest:       tempRequest,
+			EndpointKeyValues: ep.EndpointKeyValues,
 		}
 
 		// Apply our passed vars to the header/qs/body.
@@ -704,7 +705,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			var epHolder []generic_structs.ApiEndpoint
 			for _, endpoint := range sEp {
 				// For each ID key returned, create a new endpoint and append
-				for _, value := range keyValues {
+				for keyValueIndex, value := range keyValues {
 					var newSubEp generic_structs.ApiEndpoint
 					newSubEp = endpoint.Copy()
 					var endpointKey string
@@ -721,6 +722,11 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 						endpointKey = strconv.FormatInt(value.(int64), 10)
 					default:
 						utils.LogFatal("(Epico:SubEndpoints:EndpointKey)", fmt.Sprintf("Unrecognized value type: %#v", tp), nil)
+					}
+					newSubEp.EndpointKeyValues = make(map[string]interface{})
+					for endpointSourceKeyName, endpointTargetKeyName := range endpoint.EndpointKeyNames {
+						// Not quite optimal, because it's being regenerated on every iteration in parent endpoint results
+						newSubEp.EndpointKeyValues[endpointTargetKeyName] = utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedStructure)[keyValueIndex]
 					}
 					newSubEp.Vars["endpoint_key"] = endpointKey
 					epHolder = append(epHolder, newSubEp)

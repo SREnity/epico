@@ -117,6 +117,11 @@ func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonK
 		LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
 	}
 
+	endpointKeyValues := make(map[string]interface{})
+	if len(response.EndpointKeyValues) > 0 {
+		// Ignore the error here, since the JSON is valid (comes from json.Marshal)
+		json.Unmarshal([]byte(response.EndpointKeyValues), &endpointKeyValues)
+	}
 	// Find our additional key data in the list of keys so we can work with it.
 	for _, keys := range jsonKeys {
 		if keys["api_call_uuid"] != response.Uuid {
@@ -129,36 +134,53 @@ func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonK
 			LogFatal("ParsePostProcessedJson", "Invalid key count", err)
 		}
 		for i := 0; i < length; i++ {
-			cbkSet := strings.Split(
+			currentBaseKeySet := strings.Split(
 				keys["current_base_key_"+strconv.Itoa(i)], ".")
-			dbkSet := strings.Split(
+			desiredBaseKeySet := strings.Split(
 				keys["desired_base_key_"+strconv.Itoa(i)], ".")
-			cekSet := strings.Split(
+			currentErrorKeySet := strings.Split(
 				keys["current_error_key_"+strconv.Itoa(i)], ".")
-			dekSet := strings.Split(
+			desiredErrorKeySet := strings.Split(
 				keys["desired_error_key_"+strconv.Itoa(i)], ".")
-			if len(cbkSet) < 1 || len(dbkSet) < 1 {
+			if len(currentBaseKeySet) == 0 || len(desiredBaseKeySet) == 0 {
 				LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
 			}
 
 			// Run through non-error keys.
-			parsedSubStructure := ParseJsonSubStructure(cbkSet, 0,
+			parsedSubStructure := ParseJsonSubStructure(currentBaseKeySet, 0,
 				unparsedStructure)
+
+			// This code inserts values from parent endpoint response into sub-endpoint responses.
+			// Use case example: we fetch project statistics per project from Gitlab. Project stats
+			// response does not contain project name, therefore we want to include it in order for it
+			// to be used in cruncher for reporting projects with stats that don't pass tests.
+			if len(endpointKeyValues) > 0 {
+				for i, element := range parsedSubStructure {
+					unboxedElement, ok := element.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					for k, v := range endpointKeyValues {
+						unboxedElement[k] = v
+					}
+					parsedSubStructure[i] = unboxedElement
+				}
+			}
 			// Was getting some weird byRef issues when setting the map directly
 			//    equal and passing it as a param.
-			newVar := addJsonKeyStructure(dbkSet, 0, parsedStructure,
+			newVar := addJsonKeyStructure(desiredBaseKeySet, 0, parsedStructure,
 				parsedSubStructure, true)
 			parsedStructure = newVar.(map[string]interface{})
 
 			// Run through error keys.
 			// These aren't added explicitly to the key set (aren't always going
 			//    to be there), so we need to check for nils.
-			if _, ok := unparsedStructure[cekSet[0]]; ok {
-				parsedSubStructure = ParseJsonSubStructure(cekSet, 0,
+			if _, ok := unparsedStructure[currentErrorKeySet[0]]; ok {
+				parsedSubStructure = ParseJsonSubStructure(currentErrorKeySet, 0,
 					unparsedStructure)
 				// Was getting some weird byRef issues when setting the map
 				//    directly equal and passing it as a param.
-				newVar = addJsonKeyStructure(dekSet, 0, parsedErrorStructure,
+				newVar = addJsonKeyStructure(desiredErrorKeySet, 0, parsedErrorStructure,
 					parsedSubStructure, false)
 				parsedErrorStructure = newVar.(map[string]interface{})
 			}

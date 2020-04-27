@@ -1,6 +1,7 @@
 package structs
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 )
@@ -19,28 +20,31 @@ type ApiRoot struct {
 
 type ApiEndpoint struct {
 	// TODO: Should this use the inheritable settings as well?
-	Name            string                   `yaml:"name"` // Required at all levels.
-	Vars            map[string]string        `yaml:"vars,omitempty"`
-	Paging          map[string]string        `yaml:"paging,omitempty"`            // Optional
-	Return          string                   `yaml:"return,omitempty"`            // Optional
-	Endpoint        string                   `yaml:"endpoint"`                    // Required
-	CurrentBaseKey  []string                 `yaml:"current_base_key,omitempty"`  // Managing APIs that return a dict => list
-	DesiredBaseKey  []string                 `yaml:"desired_base_key,omitempty"`  // Managing APIs that return a dict => list
-	CurrentErrorKey []string                 `yaml:"current_error_key,omitempty"` // Managing APIs that return a dict => list
-	DesiredErrorKey []string                 `yaml:"desired_error_key,omitempty"` // Managing APIs that return a dict => list
-	Documentation   string                   `yaml:"documentation,omitempty"`     // Optional
-	Params          ApiParams                `yaml:"params,flow,omitempty"`       // Optional
-	Endpoints       map[string][]ApiEndpoint `yaml:"endpoints,omitempty"`         // Iterating Key => Endpoint
+	Name              string            `yaml:"name"` // Required at all levels.
+	Vars              map[string]string `yaml:"vars,omitempty"`
+	Paging            map[string]string `yaml:"paging,omitempty"`             // Optional
+	Return            string            `yaml:"return,omitempty"`             // Optional
+	Endpoint          string            `yaml:"endpoint"`                     // Required
+	CurrentBaseKey    []string          `yaml:"current_base_key,omitempty"`   // Managing APIs that return a dict => list
+	DesiredBaseKey    []string          `yaml:"desired_base_key,omitempty"`   // Managing APIs that return a dict => list
+	CurrentErrorKey   []string          `yaml:"current_error_key,omitempty"`  // Managing APIs that return a dict => list
+	DesiredErrorKey   []string          `yaml:"desired_error_key,omitempty"`  // Managing APIs that return a dict => list
+	EndpointKeyNames  map[string]string `yaml:"endpoint_key_names,omitempty"` // Needed for adding endpoint key to sub-endpoint JSON
+	EndpointKeyValues map[string]interface{}
+	Documentation     string                   `yaml:"documentation,omitempty"` // Optional
+	Params            ApiParams                `yaml:"params,flow,omitempty"`   // Optional
+	Endpoints         map[string][]ApiEndpoint `yaml:"endpoints,omitempty"`     // Iterating Key => Endpoint
 }
 
 type ApiRequest struct {
-	Settings        ApiRequestInheritableSettings
-	Endpoint        string
-	CurrentBaseKey  []string // Managing APIs that return a dict => list
-	DesiredBaseKey  []string // Managing APIs that return a dict => list
-	CurrentErrorKey []string
-	DesiredErrorKey []string
-	Params          ApiParams
+	Settings          ApiRequestInheritableSettings
+	Endpoint          string
+	CurrentBaseKey    []string // Managing APIs that return a dict => list
+	DesiredBaseKey    []string // Managing APIs that return a dict => list
+	CurrentErrorKey   []string
+	DesiredErrorKey   []string
+	EndpointKeyValues map[string]interface{}
+	Params            ApiParams
 
 	FullRequest *http.Request
 	Client      *http.Client
@@ -50,11 +54,12 @@ type ApiRequest struct {
 }
 
 type ComparableApiRequest struct {
-	Name        string
-	Uuid        string
-	Endpoint    string
-	AttemptTime time.Time
-	Time        time.Time
+	Name              string
+	Uuid              string
+	Endpoint          string
+	EndpointKeyValues string
+	AttemptTime       time.Time
+	Time              time.Time
 }
 
 type ApiRequestInheritableSettings struct {
@@ -80,12 +85,23 @@ type ApiCredentials struct {
 }
 
 func (a ApiRequest) ToComparableApiRequest() ComparableApiRequest {
+	serializedKeyValues := ""
+	if len(a.EndpointKeyValues) > 0 {
+		serializedKeyValuesBytes, err := json.Marshal(a.EndpointKeyValues)
+		// Ignore serialization errors. That's on purpose, since JSON should be valid here
+		// (comes from code)
+		if err == nil {
+			serializedKeyValues = string(serializedKeyValuesBytes)
+		}
+	}
+
 	return ComparableApiRequest{
-		Name:        a.Settings.Name,
-		Uuid:        "",
-		Endpoint:    a.Endpoint,
-		AttemptTime: a.AttemptTime,
-		Time:        a.Time,
+		Name:              a.Settings.Name,
+		Uuid:              "",
+		Endpoint:          a.Endpoint,
+		AttemptTime:       a.AttemptTime,
+		Time:              a.Time,
+		EndpointKeyValues: serializedKeyValues,
 	}
 }
 

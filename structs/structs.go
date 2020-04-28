@@ -144,6 +144,10 @@ func (a ApiEndpoint) Copy() ApiEndpoint {
 				returnApiEndpoint.Endpoints[k], sv)
 		}
 	}
+	returnApiEndpoint.EndpointKeyNames = make(map[string]string)
+	for k, v := range a.EndpointKeyNames {
+		returnApiEndpoint.EndpointKeyNames[k] = v
+	}
 
 	return returnApiEndpoint
 }

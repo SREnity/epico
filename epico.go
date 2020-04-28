@@ -692,16 +692,14 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 			responseKeys = strings.Split(key, ".")
 			var unparsedArrayStructure []map[string]interface{}
-			var keyValues []interface{}
 			var unparsedStructure map[string]interface{}
-			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err == nil {
-				keyValues = utils.ParseJsonSubStructure(responseKeys, 0, unparsedArrayStructure)
-			} else {
+			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err != nil {
 				if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
 					utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
 				}
-				keyValues = utils.ParseJsonSubStructure(responseKeys, 0, unparsedStructure)
+				unparsedArrayStructure = append(unparsedArrayStructure, unparsedStructure)
 			}
+			keyValues := utils.ParseJsonSubStructure(responseKeys, 0, unparsedArrayStructure)
 
 			var epHolder []generic_structs.ApiEndpoint
 			for _, endpoint := range sEp {
@@ -727,7 +725,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 					newSubEp.EndpointKeyValues = make(map[string]interface{})
 					for endpointSourceKeyName, endpointTargetKeyName := range endpoint.EndpointKeyNames {
 						// Not quite optimal, because it's being regenerated on every iteration in parent endpoint results
-						subStructure := utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedStructure)
+						subStructure := utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedArrayStructure)
 						if len(subStructure) > 0 {
 							newSubEp.EndpointKeyValues[endpointTargetKeyName] = subStructure[keyValueIndex]
 						}

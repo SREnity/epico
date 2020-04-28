@@ -500,8 +500,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			requestValue)
 		statusCode, response, responseHeaders := runApiRequest(
 			finalRequest[0].Interface().(generic_structs.ApiRequest))
-		if statusCode != 200 {
-			log.Printf("(Epico) [%s] Expected 200, got %d\n", ep.Name, statusCode)
+		if statusCode < 200 || statusCode > 299 {
+			log.Printf("(Epico) [%s] Expected 2xx, got %d\n", ep.Name, statusCode)
 			continue
 		}
 
@@ -608,8 +608,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				(**PluginAuthFunction)).Call(newRequestValue)
 			newStatusCode, newResponse, newResponseHeaders := runApiRequest(
 				newFinalRequest[0].Interface().(generic_structs.ApiRequest))
-			if newStatusCode != 200 {
-				log.Printf("(Epico) Expected new status 200, got %d\n", newStatusCode)
+			if newStatusCode < 200 || newStatusCode > 299 {
+				log.Printf("(Epico) Expected new status 2xx, got %d\n", newStatusCode)
 			}
 
 			comRequest = nextApiRequest.ToComparableApiRequest()
@@ -695,7 +695,9 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			var unparsedStructure map[string]interface{}
 			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err == nil {
 				// If we're here, it means that we got an array
-				unparsedStructure = unparsedArrayStructure[0]
+				if len(unparsedArrayStructure) > 0 {
+					unparsedStructure = unparsedArrayStructure[0]
+				}
 			} else if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
 				utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
 			}
@@ -726,7 +728,10 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 					newSubEp.EndpointKeyValues = make(map[string]interface{})
 					for endpointSourceKeyName, endpointTargetKeyName := range endpoint.EndpointKeyNames {
 						// Not quite optimal, because it's being regenerated on every iteration in parent endpoint results
-						newSubEp.EndpointKeyValues[endpointTargetKeyName] = utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedStructure)[keyValueIndex]
+						subStructure := utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedStructure)
+						if len(subStructure) > 0 {
+							newSubEp.EndpointKeyValues[endpointTargetKeyName] = subStructure[keyValueIndex]
+						}
 					}
 					newSubEp.Vars["endpoint_key"] = endpointKey
 					epHolder = append(epHolder, newSubEp)

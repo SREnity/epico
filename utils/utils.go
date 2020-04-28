@@ -638,8 +638,8 @@ func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string
 	defer resp.Body.Close()
 
 	// TODO: Use a better technique instead of raising an error
-	if resp.StatusCode != 200 {
-		LogFatal("SessionTokenAuth", fmt.Sprintf("Expected response status 200, got %d", resp.StatusCode), nil)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		LogFatal("SessionTokenAuth", fmt.Sprintf("Expected response status 2xx, got %d", resp.StatusCode), nil)
 	}
 
 	// TODO: Handle failed connections better / handle retry? Golang "Context"?

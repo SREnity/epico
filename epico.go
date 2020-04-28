@@ -732,20 +732,25 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 						subStructure := utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedArrayStructure)
 						if len(subStructure) > 0 {
 							newSubEp.EndpointKeyValues[endpointTargetKeyName] = subStructure[keyValueIndex]
+						} else if len(ep.EndpointKeyValues) > 0 { // Trying to take value from parent if any
+							value, ok := ep.EndpointKeyValues[endpointTargetKeyName]
+							if ok {
+								newSubEp.EndpointKeyValues[endpointTargetKeyName] = value
+							}
 						}
 					}
-					if strings.Contains(newSubEp.Endpoint, "{{__parent__") {
-						re, err := regexp.Compile(`\{\{__parent__\.([^}]+)\}\}`)
-						if err != nil {
-							utils.LogFatal("(Epico:SubEndpoints:ParentReplacement)", "Failed to compile parent regex", err)
+
+					for k, v := range newSubEp.EndpointKeyValues {
+						if v == nil {
+							continue
 						}
 
-						results := re.FindAllStringSubmatch(newSubEp.Endpoint, -1)
-						for _, element := range results {
-							// TODO: Convert this value correctly, since this might be a non-string (numeric) value
-							fieldValue := unparsedArrayStructure[keyValueIndex][element[1]].(string)
-							newSubEp.Endpoint = strings.Replace(newSubEp.Endpoint, element[0], fieldValue, -1)
+						strValue, ok := v.(string)
+						if !ok {
+							continue
 						}
+
+						newSubEp.Endpoint = strings.Replace(newSubEp.Endpoint, "{{"+k+"}}", strValue, -1)
 					}
 
 					newSubEp.Vars["endpoint_key"] = endpointKey

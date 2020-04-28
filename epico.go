@@ -769,6 +769,10 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 	if err != nil {
 		utils.LogFatal("runApiRequest", "Error reading request body", err)
 	}
+	if resp.StatusCode == 204 && len(body) == 0 {
+		body = []byte("[]")
+	}
+
 	headers, err := json.Marshal(resp.Header)
 	if err != nil {
 		utils.LogFatal("runApiRequest", "Error reading request headers", err)

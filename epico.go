@@ -482,8 +482,12 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			} //    the event we want to allow multiple
 		} //    calls to the endpoint with diff
 		for k, v := range newApiRequest.Params.QueryString { // params.
-			if len(v) > 0 {
-				q.Add(k, v[0]) // TODO: Same.
+			if len(v) > 1 {
+				for _, val := range v {
+					q.Add(k+"[]", val)
+				}
+			} else if len(v) == 1 {
+				q.Add(k, v[0])
 			}
 		}
 
@@ -730,6 +734,20 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 							newSubEp.EndpointKeyValues[endpointTargetKeyName] = subStructure[keyValueIndex]
 						}
 					}
+					if strings.Contains(newSubEp.Endpoint, "{{__parent__") {
+						re, err := regexp.Compile(`\{\{__parent__\.([^}]+)\}\}`)
+						if err != nil {
+							utils.LogFatal("(Epico:SubEndpoints:ParentReplacement)", "Failed to compile parent regex", err)
+						}
+
+						results := re.FindAllStringSubmatch(newSubEp.Endpoint, -1)
+						for _, element := range results {
+							// TODO: Convert this value correctly, since this might be a non-string (numeric) value
+							fieldValue := unparsedArrayStructure[keyValueIndex][element[1]].(string)
+							newSubEp.Endpoint = strings.Replace(newSubEp.Endpoint, element[0], fieldValue, -1)
+						}
+					}
+
 					newSubEp.Vars["endpoint_key"] = endpointKey
 					epHolder = append(epHolder, newSubEp)
 				}
@@ -772,6 +790,7 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 	if resp.StatusCode == 204 && len(body) == 0 {
 		body = []byte("[]")
 	}
+	log.Printf("Req: %#v, response: %#v", apiRequest.FullRequest.URL.String(), string(body))
 
 	headers, err := json.Marshal(resp.Header)
 	if err != nil {

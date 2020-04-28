@@ -692,17 +692,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 			responseKeys = strings.Split(key, ".")
 			var unparsedArrayStructure []map[string]interface{}
+			var keyValues []interface{}
 			var unparsedStructure map[string]interface{}
 			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err == nil {
-				// If we're here, it means that we got an array
-				if len(unparsedArrayStructure) > 0 {
-					unparsedStructure = unparsedArrayStructure[0]
+				keyValues = utils.ParseJsonSubStructure(responseKeys, 0, unparsedArrayStructure)
+			} else {
+				if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
+					utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
 				}
-			} else if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
-				utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
+				keyValues = utils.ParseJsonSubStructure(responseKeys, 0, unparsedStructure)
 			}
-
-			keyValues := utils.ParseJsonSubStructure(responseKeys, 0, unparsedStructure)
 
 			var epHolder []generic_structs.ApiEndpoint
 			for _, endpoint := range sEp {

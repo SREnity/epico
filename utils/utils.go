@@ -24,6 +24,18 @@ import (
 	"golang.org/x/oauth2/jwt"
 )
 
+type oneloginRequest struct {
+	GrantType string `json:"grant_type"`
+}
+
+type oneloginData struct {
+	AccessToken string `json:"access_token"`
+}
+
+type oneloginTokens struct {
+	Data []oneloginData `json:"data"`
+}
+
 func LogFatal(function string, text string, err error) {
 	log.Fatalf("(Epico:%v) %v: %v\n", function, text, err)
 }
@@ -595,6 +607,47 @@ func CustomHeaderAndBasicAuth(apiRequest generic_structs.ApiRequest, authParams 
 	apiRequest = CustomHeaderAuth(apiRequest, authParams[2:])
 
 	return apiRequest
+}
+
+// OneloginAuth performs some additional magic that is specific to OneLogin
+func OneloginAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
+	reqDataStruct := &oneloginRequest{"client_credentials"}
+	reqDataBytes, err := json.Marshal(reqDataStruct)
+	if err != nil {
+		LogFatal("OneloginAuth", "Failed to marshal auth request data", err)
+	}
+
+	req, err := http.NewRequest("POST", authParams[2], bytes.NewBuffer(reqDataBytes))
+	if err != nil {
+		LogFatal("OneloginAuth", "Failed to initialize HTTP request for auth", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("client_id:%s, client_secret:%s", authParams[0], authParams[1]))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		LogFatal("OneloginAuth", "Failed to perform request", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		LogFatal("OneloginAuth", fmt.Sprintf("Expected 200, got %d", resp.StatusCode), nil)
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		LogFatal("OneloginAuth", "Failed to read token data response body", err)
+	}
+
+	var tokenData oneloginTokens
+	if err := json.Unmarshal(bodyBytes, &tokenData); err != nil {
+		LogFatal("OneloginAuth", "Failed to unmarshal token data JSON", err)
+	}
+
+	return CustomHeaderAuth(apiRequest, []string{"Authorization", fmt.Sprintf("bearer %s", tokenData.Data[0].AccessToken)})
 }
 
 // Auth function for session auth implementations.  Takes provided params and

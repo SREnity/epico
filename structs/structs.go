@@ -7,15 +7,16 @@ import (
 )
 
 type ApiRoot struct {
-	Name         string              `yaml:"name"` // Required
-	VarsData     map[string][]string `yaml:"vars_data",omitempty`
-	Vars         map[string]string   `yaml:"vars",omitempty`
-	Paging       map[string]string   `yaml:"paging"` // Required
-	Plugin       string              `yaml:"plugin"` // Required
-	AuthParams   []string            `yaml:"auth_params"`
-	PagingParams []string            `yaml:"paging_params"`
-	Endpoints    []ApiEndpoint       `yaml:"endpoints"`
-	GlobalVars   map[string]string   `yaml:"global_vars",omitempty` // Needed for substitutions in all the endpoints
+	Name            string              `yaml:"name"` // Required
+	VarsData        map[string][]string `yaml:"vars_data",omitempty`
+	Vars            map[string]string   `yaml:"vars",omitempty`
+	Paging          map[string]string   `yaml:"paging"` // Required
+	Plugin          string              `yaml:"plugin"` // Required
+	AuthParams      []string            `yaml:"auth_params"`
+	PagingParams    []string            `yaml:"paging_params"`
+	Endpoints       []ApiEndpoint       `yaml:"endpoints"`
+	GlobalVars      map[string]string   `yaml:"global_vars",omitempty`       // Needed for substitutions in all the endpoints
+	SkipContentType bool                `yaml:"skip_content_type,omitempty"` // Needed for skipping setting Content-Type header to application/json
 }
 
 type ApiEndpoint struct {
@@ -63,13 +64,14 @@ type ComparableApiRequest struct {
 }
 
 type ApiRequestInheritableSettings struct {
-	Name         string
-	Vars         map[string]string `yaml:"vars",omitempty`
-	Paging       map[string]string
-	Plugin       string            `yaml:"plugin"` // Required
-	AuthParams   []string          `yaml:"auth_params"`
-	PagingParams []string          `yaml:"paging_params"`
-	GlobalVars   map[string]string `yaml:"global_vars",omitempty` // Needed for substitutions in all the endpoints
+	Name            string
+	Vars            map[string]string `yaml:"vars",omitempty`
+	Paging          map[string]string
+	Plugin          string            `yaml:"plugin"` // Required
+	AuthParams      []string          `yaml:"auth_params"`
+	PagingParams    []string          `yaml:"paging_params"`
+	GlobalVars      map[string]string `yaml:"global_vars,omitempty"`       // Needed for substitutions in all the endpoints
+	SkipContentType bool              `yaml:"skip_content_type,omitempty"` // Skip setting content-type header to application/json
 }
 
 type ApiParams struct {

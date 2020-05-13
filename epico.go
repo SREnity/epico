@@ -148,13 +148,14 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			}
 
 			rootSettingsData := generic_structs.ApiRequestInheritableSettings{
-				Name:         api.Name,
-				Vars:         api.Vars,
-				Paging:       api.Paging,
-				Plugin:       api.Plugin,
-				AuthParams:   aps,
-				PagingParams: paps,
-				GlobalVars:   api.GlobalVars,
+				Name:            api.Name,
+				Vars:            api.Vars,
+				Paging:          api.Paging,
+				Plugin:          api.Plugin,
+				AuthParams:      aps,
+				PagingParams:    paps,
+				GlobalVars:      api.GlobalVars,
+				SkipContentType: api.SkipContentType,
 			}
 
 			// Load the plugin and functions for this config file.
@@ -460,8 +461,9 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				// Expandable vars are defined at the root only, and
 				//    pulled from cach file then combined with static
 				//    vars from EP.
-				Vars:   vars,
-				Paging: paging,
+				Vars:            vars,
+				Paging:          paging,
+				SkipContentType: rootSettingsData.SkipContentType,
 			},
 			Endpoint:          ep.Endpoint,
 			CurrentBaseKey:    currentBaseKey,

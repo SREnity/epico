@@ -20,6 +20,7 @@ import (
 
 	xj "github.com/basgys/goxml2json"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"golang.org/x/oauth2/jwt"
 )
@@ -740,18 +741,29 @@ func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string
 func Oauth2TwoLegAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
 	values := url.Values{}
 	for _, v := range strings.Split(authParams[4], ",") {
-		colonSplit := strings.Index(v, ":")
+		colonSplit := strings.Index(v, "|")
 		if colonSplit < 0 {
 			LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
 		}
 		values.Add(v[:colonSplit], v[colonSplit+1:])
 	}
+	authStyle := oauth2.AuthStyleAutoDetect
+
+	if len(authParams) == 6 {
+		if authParams[5] == "in_params" {
+			authStyle = oauth2.AuthStyleInParams
+		} else if authParams[5] == "in_header" {
+			authStyle = oauth2.AuthStyleInHeader
+		}
+	}
+
 	cfg := &clientcredentials.Config{
 		ClientID:       authParams[0],
 		ClientSecret:   authParams[1],
 		Scopes:         strings.Split(authParams[2], ","),
 		TokenURL:       authParams[3],
 		EndpointParams: values,
+		AuthStyle:      authStyle,
 	}
 
 	ctx := context.Background()

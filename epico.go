@@ -730,6 +730,11 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 					}
 					newSubEp.EndpointKeyValues = make(map[string]interface{})
 					for endpointSourceKeyName, endpointTargetKeyName := range endpoint.EndpointKeyNames {
+						if endpointSourceKeyName == "{{endpoint_key}}" {
+							newSubEp.EndpointKeyValues[endpointTargetKeyName] = endpointKey
+							continue
+						}
+
 						// Not quite optimal, because it's being regenerated on every iteration in parent endpoint results
 						subStructure := utils.ParseJsonSubStructure(strings.Split(endpointSourceKeyName, "."), 0, unparsedArrayStructure)
 						if len(subStructure) > 0 {

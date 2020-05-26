@@ -800,8 +800,7 @@ func JwtAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic
 	return apiRequest
 }
 
-// Used at build-time for plugins to actually expand the variables in our new
-//    YAML files.
+// Used at build-time for plugins to actually expand the variables in our new YAML files.
 // Vars:
 // rawYaml   = Raw YAML we are expanding.
 // varsData  = The vars data we are expanding.

@@ -54,7 +54,6 @@ import (
 //                        }
 // TODO: Should this be passed as a JSON []byte/string we can just marshal?
 func PullApiData(configLocation string, authParams []string, peekParams []string, postParams []string, additionalParams map[string]map[string]map[string]string) []byte {
-
 	api := generic_structs.ApiRoot{}
 
 	responseList := make(map[generic_structs.ComparableApiRequest][]byte)
@@ -66,37 +65,29 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 		return nil
 	}
 
-	// Declare this outside the process loop because the post process function
-	//    gets applied to results of all API calls.
-	var PluginPostProcessFunction = new(*func(
-		map[generic_structs.ComparableApiRequest][]uint8,
-		[]map[string]string, []string) []uint8)
+	// Declare this outside the process loop because the post process function  gets applied to results of all API calls.
+	var PluginPostProcessFunction = new(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string) []uint8)
 
 	for _, f := range files {
 		rawYaml, err := ioutil.ReadFile(configLocation + f.Name())
 		if err != nil {
-			utils.LogFatal("PullApiData", "Error reading YAML API defnition",
-				err)
+			utils.LogFatal("PullApiData", "Error reading YAML API defnition", err)
 		}
 
 		err = yaml.Unmarshal([]byte(rawYaml), &api)
 		if err != nil {
-			utils.LogFatal("PullApiData",
-				"Error unmarshaling YAML API definition", err)
+			utils.LogFatal("PullApiData", "Error unmarshaling YAML API definition", err)
 		}
 
-		// Do our YAML expansion so we can iterate through the various
-		//    permutations.
+		// Do our YAML expansion so we can iterate through the various permutations.
 		var expandedYamls [][]byte
 		if len(api.VarsData) > 0 {
-			expandedYamls = utils.PopulateYamlSlice(string(rawYaml),
-				api.VarsData)
+			expandedYamls = utils.PopulateYamlSlice(string(rawYaml), api.VarsData)
 		} else {
 			expandedYamls = append(expandedYamls, rawYaml)
 		}
 
 		for _, y := range expandedYamls {
-
 			// Repull our data incase some expansion vars were in there.
 			err = yaml.Unmarshal([]byte(y), &api)
 			if err != nil {
@@ -225,7 +216,7 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 	finalResponseValueList = append(finalResponseValueList,
 		reflect.ValueOf(responseList), reflect.ValueOf(jsonKeys),
 		reflect.ValueOf(postParams))
-	finalResponse := reflect.ValueOf((**PluginPostProcessFunction)).Call(
+	finalResponse := reflect.ValueOf(**PluginPostProcessFunction).Call(
 		finalResponseValueList)
 
 	return finalResponse[0].Bytes()
@@ -344,8 +335,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				}
 			} else if t == "querystring" {
 				for k, v := range m {
-					params.QueryString[k] = append(
-						params.QueryString[k], v)
+					params.QueryString[k] = append(params.QueryString[k], v)
 				}
 			} else if t == "body" {
 				// TODO
@@ -356,45 +346,33 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		if doEndpointSubs {
 			for k, v := range vars {
 				if len(currentBaseKey) != len(desiredBaseKey) || len(currentErrorKey) != len(desiredErrorKey) {
-					utils.LogFatal("PullApiData",
-						"Current and desired key lists must be the same length.", nil)
+					utils.LogFatal("PullApiData", "Current and desired key lists must be the same length.", nil)
 				} else {
-					name = strings.Replace(name, "{{"+k+"}}", v,
-						-1)
+					name = strings.Replace(name, "{{"+k+"}}", v, -1)
 					for i := range currentBaseKey {
-						currentBaseKey[i] = strings.Replace(currentBaseKey[i],
-							"{{"+k+"}}", v, -1)
-						desiredBaseKey[i] = strings.Replace(desiredBaseKey[i],
-							"{{"+k+"}}", v, -1)
+						currentBaseKey[i] = strings.Replace(currentBaseKey[i], "{{"+k+"}}", v, -1)
+						desiredBaseKey[i] = strings.Replace(desiredBaseKey[i], "{{"+k+"}}", v, -1)
 					}
 					for i := range currentErrorKey {
-						currentErrorKey[i] = strings.Replace(currentErrorKey[i],
-							"{{"+k+"}}", v, -1)
-						desiredErrorKey[i] = strings.Replace(desiredErrorKey[i],
-							"{{"+k+"}}", v, -1)
+						currentErrorKey[i] = strings.Replace(currentErrorKey[i], "{{"+k+"}}", v, -1)
+						desiredErrorKey[i] = strings.Replace(desiredErrorKey[i], "{{"+k+"}}", v, -1)
 					}
 					for pk, pv := range params.Header {
 						for li, item := range pv {
-							params.Header[pk][li] =
-								strings.Replace(item,
-									"{{"+k+"}}", v, -1)
+							params.Header[pk][li] = strings.Replace(item, "{{"+k+"}}", v, -1)
 						}
 					}
 					for pk, pv := range params.QueryString {
 						for li, item := range pv {
-							params.QueryString[pk][li] =
-								strings.Replace(
-									item, "{{"+k+"}}", v, -1)
+							params.QueryString[pk][li] = strings.Replace(item, "{{"+k+"}}", v, -1)
 						}
 					}
 					for pk, pv := range params.Body {
 						for li, item := range pv {
-							params.Body[pk][li] = strings.Replace(
-								item, "{{"+k+"}}", v, -1)
+							params.Body[pk][li] = strings.Replace(item, "{{"+k+"}}", v, -1)
 						}
 					}
-					ep.Endpoint = strings.Replace(ep.Endpoint,
-						"{{"+k+"}}", v, -1)
+					ep.Endpoint = strings.Replace(ep.Endpoint, "{{"+k+"}}", v, -1)
 					if len(additionalParams["*"]) > 0 && len(additionalParams["*"]["var_params"]) > 0 {
 						for varKey, varValue := range additionalParams["*"]["var_params"] {
 							if strings.ToLower(varKey) == strings.ToLower(k) {
@@ -402,8 +380,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 							}
 						}
 					}
-					ep.Documentation = strings.Replace(
-						ep.Documentation, "{{"+k+"}}", v, -1)
+					ep.Documentation = strings.Replace(ep.Documentation, "{{"+k+"}}", v, -1)
 				}
 			}
 		}
@@ -502,7 +479,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		requestValue = append(requestValue,
 			reflect.ValueOf(newApiRequest),
 			reflect.ValueOf(rootSettingsData.AuthParams))
-		finalRequest := reflect.ValueOf((**PluginAuthFunction)).Call(
+		finalRequest := reflect.ValueOf(**PluginAuthFunction).Call(
 			requestValue)
 		statusCode, response, responseHeaders := runApiRequest(
 			finalRequest[0].Interface().(generic_structs.ApiRequest))
@@ -571,7 +548,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				responseKeys), reflect.ValueOf((*interface{})(nil)),
 			reflect.ValueOf(rootSettingsData.PagingParams))
 		peekValue := reflect.ValueOf(
-			(**PluginPagingPeekFunction)).Call(finalPeekValueList)
+			**PluginPagingPeekFunction).Call(finalPeekValueList)
 		pageValue := peekValue[0].Interface()
 		morePages := peekValue[1].Bool()
 
@@ -611,7 +588,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				reflect.ValueOf(nextApiRequest),
 				reflect.ValueOf(rootSettingsData.AuthParams))
 			newFinalRequest := reflect.ValueOf(
-				(**PluginAuthFunction)).Call(newRequestValue)
+				**PluginAuthFunction).Call(newRequestValue)
 			newStatusCode, newResponse, newResponseHeaders := runApiRequest(
 				newFinalRequest[0].Interface().(generic_structs.ApiRequest))
 			if newStatusCode < 200 || newStatusCode > 299 {
@@ -672,7 +649,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				reflect.ValueOf(oldPageValue),
 				reflect.ValueOf(rootSettingsData.PagingParams))
 			peekValue := reflect.ValueOf(
-				(**PluginPagingPeekFunction)).Call(
+				**PluginPagingPeekFunction).Call(
 				finalPeekValueList)
 			pageValue = peekValue[0].Interface()
 			morePages = peekValue[1].Bool()
@@ -692,7 +669,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			jsonConversionValue = append(jsonConversionValue,
 				reflect.ValueOf(ep.Vars),
 				reflect.ValueOf(response))
-			finalJsonResponse := reflect.ValueOf((**PluginResponseToJsonFunction)).Call(jsonConversionValue)
+			finalJsonResponse := reflect.ValueOf(**PluginResponseToJsonFunction).Call(jsonConversionValue)
 
 			pagingData := finalJsonResponse[0].Bytes()
 

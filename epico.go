@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"plugin"
 	"reflect"
 	"regexp"
@@ -720,8 +721,15 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 	if resp.StatusCode == 204 && len(body) == 0 {
 		body = []byte("[]")
 	}
-	log.Printf("Request: %#v", apiRequest.FullRequest.URL.String())
-	log.Printf("Response: %#v", string(body))
+
+	log_request := os.Getenv("EPICO_LOG_REQUEST")
+	if log_request == "true" {
+		log.Printf("Request: %#v", apiRequest.FullRequest.URL.String())
+	}
+	log_response := os.Getenv("EPICO_LOG_REQUEST")
+	if log_response == "true" {
+		log.Printf("Response: %#v", string(body))
+	}
 
 	headers, err := json.Marshal(resp.Header)
 	if err != nil {

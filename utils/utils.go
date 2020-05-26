@@ -9,20 +9,17 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-
-	//    "os"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
-	generic_structs "github.com/SREnity/epico/structs"
-
 	xj "github.com/basgys/goxml2json"
-
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"golang.org/x/oauth2/jwt"
+
+	generic_structs "github.com/SREnity/epico/structs"
 )
 
 type oneloginRequest struct {

@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	generic_structs "github.com/SREnity/epico/structs"
-	"github.com/SREnity/epico/utils"
-
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/yaml.v2"
+
+	generic_structs "github.com/SREnity/epico/structs"
+	"github.com/SREnity/epico/utils"
 )
 
 // The meat of Epico and the only thing called externally - it handles parsing
@@ -91,8 +91,7 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			// Repull our data incase some expansion vars were in there.
 			err = yaml.Unmarshal([]byte(y), &api)
 			if err != nil {
-				utils.LogFatal("PullApiData",
-					"Error unmarshaling YAML API definition", err)
+				utils.LogFatal("PullApiData", "Error unmarshaling YAML API definition", err)
 			}
 			// Handle Params merging - options are:
 			// - overwrite config file with CLI vars
@@ -162,40 +161,30 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			*PluginAuthFunction = authSymbol.(*func(generic_structs.ApiRequest,
 				[]string) generic_structs.ApiRequest)
 			if err != nil {
-				utils.LogFatal("PullApiData",
-					"Error looking up plugin Auth function", err)
+				utils.LogFatal("PullApiData", "Error looking up plugin Auth function", err)
 			}
 
-			var PluginResponseToJsonFunction = new(*func(map[string]string,
-				[]byte) []byte)
+			var PluginResponseToJsonFunction = new(*func(map[string]string, []byte) []byte)
 			rtjSymbol, err := plug.Lookup("PluginResponseToJsonFunction")
-			*PluginResponseToJsonFunction = rtjSymbol.(*func(map[string]string,
-				[]byte) []byte)
+			*PluginResponseToJsonFunction = rtjSymbol.(*func(map[string]string, []byte) []byte)
 			if err != nil {
-				utils.LogFatal("PullApiData",
-					"Error looking up plugin ResponseToJson function", err)
+				utils.LogFatal("PullApiData", "Error looking up plugin ResponseToJson function", err)
 			}
 
 			// We only take the post processing from the first YAML we pull.
 			if *PluginPostProcessFunction == nil {
 				ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
-				*PluginPostProcessFunction = ppSymbol.(*func(
-					map[generic_structs.ComparableApiRequest][]uint8,
-					[]map[string]string, []string) []uint8)
+				*PluginPostProcessFunction = ppSymbol.(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string) []uint8)
 				if err != nil {
-					utils.LogFatal("PullApiData",
-						"Error looking up plugin PostProcess function", err)
+					utils.LogFatal("PullApiData", "Error looking up plugin PostProcess function", err)
 				}
 			}
 
-			var PluginPagingPeekFunction = new(*func([]uint8, []string,
-				interface{}, []string) (interface{}, bool))
+			var PluginPagingPeekFunction = new(*func([]uint8, []string, interface{}, []string) (interface{}, bool))
 			paPSymbol, err := plug.Lookup("PluginPagingPeekFunction")
-			*PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string,
-				interface{}, []string) (interface{}, bool))
+			*PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string, interface{}, []string) (interface{}, bool))
 			if err != nil {
-				utils.LogFatal("PullApiData",
-					"Error looking up plugin PagingPeek function", err)
+				utils.LogFatal("PullApiData", "Error looking up plugin PagingPeek function", err)
 			}
 
 			// TODO: This doesn't work with a sub endpoint that uses a different
@@ -220,7 +209,6 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 		finalResponseValueList)
 
 	return finalResponse[0].Bytes()
-
 }
 
 func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsData generic_structs.ApiRequestInheritableSettings, additionalParams map[string]map[string]map[string]string, PluginAuthFunction **func(generic_structs.ApiRequest, []string) generic_structs.ApiRequest, PluginResponseToJsonFunction **func(map[string]string, []byte) []byte, PluginPagingPeekFunction **func([]uint8, []string, interface{}, []string) (interface{}, bool), runSubEndpoints bool, depth int) (map[generic_structs.ComparableApiRequest][]byte, []map[string]string) {
@@ -234,8 +222,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		var vars, paging map[string]string
 		params := generic_structs.ApiParams{}
 
-		// Pull substitution vars first so we can substitute while
-		//    saving other variables
+		// Pull substitution vars first so we can substitute while saving other variables
 		if len(rootSettingsData.Vars) != 0 {
 			vars = rootSettingsData.Vars
 		} else {
@@ -295,9 +282,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		} else {
 			desiredErrorKey = []string(nil)
 		}
-		if len(ep.Params.QueryString) != 0 ||
-			len(ep.Params.Body) != 0 ||
-			len(ep.Params.Header) != 0 {
+		if len(ep.Params.QueryString) != 0 || len(ep.Params.Body) != 0 || len(ep.Params.Header) != 0 {
 			params = ep.Params
 		} else {
 			params = generic_structs.ApiParams{
@@ -397,12 +382,10 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 		tempRequest, err := http.NewRequest("GET", ep.Endpoint, nil)
 		if err != nil {
-			utils.LogFatal("PullApiData", "Error creating API request object",
-				err)
+			utils.LogFatal("PullApiData", "Error creating API request object", err)
 		}
 
-		// Create the endpoint key set for iterating on later in the
-		//    post process.
+		// Create the endpoint key set for iterating on later in the post process.
 		newUuid, err := uuid.NewV4()
 		if err != nil {
 			utils.LogFatal("PullApiData", "Unable to generate new UUID", err)
@@ -411,8 +394,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			"api_call_name": ep.Name,
 			"api_call_uuid": newUuid.String(),
 		}
-		// Add our endpoint vars here so we can access them later in the
-		//    post process.
+		// Add our endpoint vars here so we can access them later in the post process.
 		for k, v := range ep.Vars {
 			newKeySet[k] = v
 		}
@@ -445,9 +427,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		newApiRequest := generic_structs.ApiRequest{
 			Settings: generic_structs.ApiRequestInheritableSettings{
 				Name: name,
-				// Expandable vars are defined at the root only, and
-				//    pulled from cach file then combined with static
-				//    vars from EP.
+				// Expandable vars are defined at the root only, and pulled from cach file then combined with static vars from EP.
 				Vars:            vars,
 				Paging:          paging,
 				SkipContentType: rootSettingsData.SkipContentType,
@@ -468,8 +448,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		for k, v := range newApiRequest.Params.Header {
 			if len(v) > 0 {
 				h.Add(k, v[0]) // TODO: Handle multiple passed here in
-			} //    the event we want to allow multiple
-		} //    calls to the endpoint with diff
+			} // the event we want to allow multiple
+		} // calls to the endpoint with diff
 		for k, v := range newApiRequest.Params.QueryString { // params.
 			if len(v) > 1 {
 				for _, val := range v {
@@ -486,13 +466,9 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 		var requestValue []reflect.Value
 		newApiRequest.Time = time.Now()
-		requestValue = append(requestValue,
-			reflect.ValueOf(newApiRequest),
-			reflect.ValueOf(rootSettingsData.AuthParams))
-		finalRequest := reflect.ValueOf(**PluginAuthFunction).Call(
-			requestValue)
-		statusCode, response, responseHeaders := runApiRequest(
-			finalRequest[0].Interface().(generic_structs.ApiRequest))
+		requestValue = append(requestValue, reflect.ValueOf(newApiRequest), reflect.ValueOf(rootSettingsData.AuthParams))
+		finalRequest := reflect.ValueOf(**PluginAuthFunction).Call(requestValue)
+		statusCode, response, responseHeaders := runApiRequest(finalRequest[0].Interface().(generic_structs.ApiRequest))
 		if statusCode < 200 || statusCode > 299 {
 			log.Printf("(Epico) [%s] Expected 2xx, got %d\n", ep.Name, statusCode)
 			continue
@@ -505,15 +481,12 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		// Also, don't append the result if we don't want to return this data
 		if ep.Return != "false" {
 			if _, ok := responseList[comRequest]; ok {
-				responseList[comRequest] = append(
-					responseList[comRequest], response...)
+				responseList[comRequest] = append(responseList[comRequest], response...)
 			} else {
-				responseList[comRequest] = append(
-					make([]byte, 0), response...)
+				responseList[comRequest] = append(make([]byte, 0), response...)
 			}
 		}
-		// Add the first response to our new response list (map).  Now
-		//    check if we need to page.
+		// Add the first response to our new response list (map). Now check if we need to page.
 
 		// Here we handle multipart keys - response.key.key1 etc.
 		var responseKeys []string
@@ -524,25 +497,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			//    results second. Since the multipart keys could be of
 			//    different lengths, we store where the split is to
 			//    break it up in the peek func.
-			separateKeys := strings.Split(
-				newApiRequest.Settings.Paging["indicator_from_field"],
-				",")
+			separateKeys := strings.Split(newApiRequest.Settings.Paging["indicator_from_field"], ",")
 			if len(separateKeys) != 3 {
-				utils.LogFatal("PullApiData",
-					"Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+				utils.LogFatal("PullApiData", "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
 			}
-			responseKeys = []string{strconv.Itoa(len(
-				strings.Split(separateKeys[0], "."))) +
-				"," + strconv.Itoa(len(
-				strings.Split(separateKeys[1], ".")))}
+			responseKeys = []string{strconv.Itoa(len(strings.Split(separateKeys[0], "."))) + "," + strconv.Itoa(len(strings.Split(separateKeys[1], ".")))}
 			for _, v := range separateKeys {
-				responseKeys = append(responseKeys,
-					strings.Split(v, ".")...)
+				responseKeys = append(responseKeys, strings.Split(v, ".")...)
 			}
 		} else {
-			responseKeys = strings.Split(
-				newApiRequest.Settings.Paging["indicator_from_field"],
-				".")
+			responseKeys = strings.Split(newApiRequest.Settings.Paging["indicator_from_field"], ".")
 		}
 
 		// Call our peek function to see if we have a paging value.
@@ -553,12 +517,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			pagingData = reflect.ValueOf(response)
 		}
 		var finalPeekValueList []reflect.Value
-		finalPeekValueList = append(
-			finalPeekValueList, pagingData, reflect.ValueOf(
-				responseKeys), reflect.ValueOf((*interface{})(nil)),
-			reflect.ValueOf(rootSettingsData.PagingParams))
-		peekValue := reflect.ValueOf(
-			**PluginPagingPeekFunction).Call(finalPeekValueList)
+		finalPeekValueList = append(finalPeekValueList, pagingData, reflect.ValueOf(responseKeys), reflect.ValueOf((*interface{})(nil)), reflect.ValueOf(rootSettingsData.PagingParams))
+		peekValue := reflect.ValueOf(**PluginPagingPeekFunction).Call(finalPeekValueList)
 		pageValue := peekValue[0].Interface()
 		morePages := peekValue[1].Bool()
 
@@ -567,21 +527,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			nextApiRequest := newApiRequest
 			// Handle passing the paging indicator.
 			// TODO: Handle "body"
-			if nextApiRequest.Settings.Paging["location_to"] ==
-				"querystring" {
+			if nextApiRequest.Settings.Paging["location_to"] == "querystring" {
 				// TODO: Change to 'case'
 				if nextApiRequest.Settings.Paging["indicator_from_structure"] == "full_url" {
-					nextApiRequest.FullRequest.URL, err =
-						nextApiRequest.FullRequest.URL.Parse(
-							oldPageValue.(string))
+					nextApiRequest.FullRequest.URL, err = nextApiRequest.FullRequest.URL.Parse(oldPageValue.(string))
 					if err != nil {
 						utils.LogFatal("PullApiData", "Error parsing paging URL returned", err)
 					}
 				} else if nextApiRequest.Settings.Paging["indicator_from_structure"] == "calculated" {
 					q := nextApiRequest.FullRequest.URL.Query()
-					q.Set(nextApiRequest.Settings.Paging["indicator_to_field"],
-						strconv.FormatFloat(oldPageValue.(float64),
-							'f', -1, 64))
+					q.Set(nextApiRequest.Settings.Paging["indicator_to_field"], strconv.FormatFloat(oldPageValue.(float64), 'f', -1, 64))
 					nextApiRequest.FullRequest.URL.RawQuery = q.Encode()
 				} else {
 					// By default they just give us a param back.
@@ -594,13 +549,9 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 			var newRequestValue []reflect.Value
 			nextApiRequest.Time = time.Now()
-			newRequestValue = append(newRequestValue,
-				reflect.ValueOf(nextApiRequest),
-				reflect.ValueOf(rootSettingsData.AuthParams))
-			newFinalRequest := reflect.ValueOf(
-				**PluginAuthFunction).Call(newRequestValue)
-			newStatusCode, newResponse, newResponseHeaders := runApiRequest(
-				newFinalRequest[0].Interface().(generic_structs.ApiRequest))
+			newRequestValue = append(newRequestValue, reflect.ValueOf(nextApiRequest), reflect.ValueOf(rootSettingsData.AuthParams))
+			newFinalRequest := reflect.ValueOf(**PluginAuthFunction).Call(newRequestValue)
+			newStatusCode, newResponse, newResponseHeaders := runApiRequest(newFinalRequest[0].Interface().(generic_structs.ApiRequest))
 			if newStatusCode < 200 || newStatusCode > 299 {
 				log.Printf("(Epico) Expected new status 2xx, got %d\n", newStatusCode)
 			}
@@ -609,11 +560,9 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			comRequest.Uuid = newUuid.String()
 			if ep.Return != "false" {
 				if _, ok := responseList[comRequest]; ok {
-					responseList[comRequest] = append(
-						responseList[comRequest], newResponse...)
+					responseList[comRequest] = append(responseList[comRequest], newResponse...)
 				} else {
-					responseList[comRequest] = append(
-						make([]byte, 0), newResponse...)
+					responseList[comRequest] = append(make([]byte, 0), newResponse...)
 				}
 			}
 
@@ -621,27 +570,18 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			if nextApiRequest.Settings.Paging["indicator_from_structure"] ==
 				"calculated" {
 				// See above.
-				separateKeys := strings.Split(
-					nextApiRequest.Settings.Paging["indicator_from_field"],
-					",")
+				separateKeys := strings.Split(nextApiRequest.Settings.Paging["indicator_from_field"], ",")
 				if len(separateKeys) != 3 {
-					utils.LogFatal("PullApiData",
-						"Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+					utils.LogFatal("PullApiData", "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
 				}
 
-				newResponseKeys = []string{strconv.Itoa(len(
-					strings.Split(separateKeys[0], "."))) +
-					"," + strconv.Itoa(len(
-					strings.Split(separateKeys[1], ".")))}
+				newResponseKeys = []string{strconv.Itoa(len(strings.Split(separateKeys[0], "."))) + "," + strconv.Itoa(len(strings.Split(separateKeys[1], ".")))}
 
 				for _, v := range separateKeys {
-					newResponseKeys = append(newResponseKeys,
-						strings.Split(v, ".")...)
+					newResponseKeys = append(newResponseKeys, strings.Split(v, ".")...)
 				}
 			} else {
-				newResponseKeys = strings.Split(
-					nextApiRequest.Settings.Paging["indicator_from_field"],
-					".")
+				newResponseKeys = strings.Split(nextApiRequest.Settings.Paging["indicator_from_field"], ".")
 			}
 
 			// Call our peek function to see if we have a paging value.
@@ -658,27 +598,20 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				reflect.ValueOf(newResponseKeys),
 				reflect.ValueOf(oldPageValue),
 				reflect.ValueOf(rootSettingsData.PagingParams))
-			peekValue := reflect.ValueOf(
-				**PluginPagingPeekFunction).Call(
-				finalPeekValueList)
+			peekValue := reflect.ValueOf(**PluginPagingPeekFunction).Call(finalPeekValueList)
 			pageValue = peekValue[0].Interface()
 			morePages = peekValue[1].Bool()
-
 		}
 
-		// How do we expand variables into sub endpoints (e.g. main
-		//     endpoint is for us-east-1 but sub endpoint should do all)
-		// TODO: Example: For now, if the instance is in us-east-1, the subcalls
-		//     would be to.  Leaving for now.
+		// How do we expand variables into sub endpoints (e.g. main endpoint is for us-east-1 but sub endpoint should do all)
+		// TODO: Example: For now, if the instance is in us-east-1, the subcalls would be to.  Leaving for now.
 		for key, sEp := range ep.Endpoints {
 			// for matching keys in ep.Endpoint response
 			//     create new endpoint epHolder
 			//     expand endpoint_key into epHolder properties
 			//     run calls on subendpoint
 			var jsonConversionValue []reflect.Value
-			jsonConversionValue = append(jsonConversionValue,
-				reflect.ValueOf(ep.Vars),
-				reflect.ValueOf(response))
+			jsonConversionValue = append(jsonConversionValue, reflect.ValueOf(ep.Vars), reflect.ValueOf(response))
 			finalJsonResponse := reflect.ValueOf(**PluginResponseToJsonFunction).Call(jsonConversionValue)
 
 			pagingData := finalJsonResponse[0].Bytes()
@@ -759,14 +692,12 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			}
 			jsonKeys = append(jsonKeys, subJsonKeys...)
 		}
-
 	}
 
 	return responseList, jsonKeys
 }
 
 func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) {
-
 	var client *http.Client
 	if apiRequest.Client == nil {
 		client = &http.Client{}
@@ -789,7 +720,8 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 	if resp.StatusCode == 204 && len(body) == 0 {
 		body = []byte("[]")
 	}
-	log.Printf("Req: %#v, response: %#v", apiRequest.FullRequest.URL.String(), string(body))
+	log.Printf("Request: %#v", apiRequest.FullRequest.URL.String())
+	log.Printf("Response: %#v", string(body))
 
 	headers, err := json.Marshal(resp.Header)
 	if err != nil {
@@ -806,5 +738,4 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 	//utils.LogWarn("Response", string(body)+"\n\n", nil)
 
 	return resp.StatusCode, body, headers
-
 }

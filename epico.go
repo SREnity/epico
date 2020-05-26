@@ -255,6 +255,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			}
 		}
 
+		skipEnpoints := false
+		for k, v := range vars {
+			if len(ep.SkipEndpoint[k]) > 0 && utils.StringInSlice(v, ep.SkipEndpoint[k]) > -1 {
+				skipEnpoints = true
+			}
+		}
+		if skipEnpoints {
+			continue
+		}
+
 		if ep.Name != "" {
 			name = ep.Name
 		} else {

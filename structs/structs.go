@@ -23,6 +23,7 @@ type ApiEndpoint struct {
 	// TODO: Should this use the inheritable settings as well?
 	Name              string            `yaml:"name"` // Required at all levels.
 	Vars              map[string]string `yaml:"vars,omitempty"`
+	SkipEndpoint      map[string][]string `yaml:"skip_endpoint,omitempty"`     // Optional
 	Paging            map[string]string `yaml:"paging,omitempty"`             // Optional
 	Return            string            `yaml:"return,omitempty"`             // Optional
 	Endpoint          string            `yaml:"endpoint"`                     // Required

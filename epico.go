@@ -62,8 +62,8 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 
 	files, err := ioutil.ReadDir(configLocation)
 	if err != nil {
-		utils.LogFatal("PullApiData", "Unable to read config directory", err)
-		return nil
+		utils.LogError("PullApiData", "Unable to read config directory", err)
+		return []byte(nil)
 	}
 
 	// Declare this outside the process loop because the post process function  gets applied to results of all API calls.
@@ -72,12 +72,14 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 	for _, f := range files {
 		rawYaml, err := ioutil.ReadFile(configLocation + f.Name())
 		if err != nil {
-			utils.LogFatal("PullApiData", "Error reading YAML API defnition", err)
+			utils.LogError("PullApiData", "Error reading YAML API defnition", err)
+			return []byte(nil)
 		}
 
 		err = yaml.Unmarshal([]byte(rawYaml), &api)
 		if err != nil {
-			utils.LogFatal("PullApiData", "Error unmarshaling YAML API definition", err)
+			utils.LogError("PullApiData", "Error unmarshaling YAML API definition", err)
+			return []byte(nil)
 		}
 
 		// Do our YAML expansion so we can iterate through the various permutations.
@@ -92,7 +94,8 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			// Repull our data incase some expansion vars were in there.
 			err = yaml.Unmarshal([]byte(y), &api)
 			if err != nil {
-				utils.LogFatal("PullApiData", "Error unmarshaling YAML API definition", err)
+				utils.LogError("PullApiData", "Error unmarshaling YAML API definition", err)
+				return []byte(nil)
 			}
 			// Handle Params merging - options are:
 			// - overwrite config file with CLI vars
@@ -152,8 +155,8 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			// Load the plugin and functions for this config file.
 			plug, err := plugin.Open(rootSettingsData.Plugin)
 			if err != nil {
-				utils.LogFatal("PullApiData", "Error opening plugin", err)
-				return nil
+				utils.LogError("PullApiData", "Error opening plugin", err)
+				return []byte(nil)
 			}
 
 			var PluginAuthFunction = new(*func(generic_structs.ApiRequest,
@@ -162,14 +165,16 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			*PluginAuthFunction = authSymbol.(*func(generic_structs.ApiRequest,
 				[]string) generic_structs.ApiRequest)
 			if err != nil {
-				utils.LogFatal("PullApiData", "Error looking up plugin Auth function", err)
+				utils.LogError("PullApiData", "Error looking up plugin Auth function", err)
+				return []byte(nil)
 			}
 
 			var PluginResponseToJsonFunction = new(*func(map[string]string, []byte) []byte)
 			rtjSymbol, err := plug.Lookup("PluginResponseToJsonFunction")
 			*PluginResponseToJsonFunction = rtjSymbol.(*func(map[string]string, []byte) []byte)
 			if err != nil {
-				utils.LogFatal("PullApiData", "Error looking up plugin ResponseToJson function", err)
+				utils.LogError("PullApiData", "Error looking up plugin ResponseToJson function", err)
+				return []byte(nil)
 			}
 
 			// We only take the post processing from the first YAML we pull.
@@ -177,7 +182,8 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 				ppSymbol, err := plug.Lookup("PluginPostProcessFunction")
 				*PluginPostProcessFunction = ppSymbol.(*func(map[generic_structs.ComparableApiRequest][]uint8, []map[string]string, []string) []uint8)
 				if err != nil {
-					utils.LogFatal("PullApiData", "Error looking up plugin PostProcess function", err)
+					utils.LogError("PullApiData", "Error looking up plugin PostProcess function", err)
+					return []byte(nil)
 				}
 			}
 
@@ -185,11 +191,11 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			paPSymbol, err := plug.Lookup("PluginPagingPeekFunction")
 			*PluginPagingPeekFunction = paPSymbol.(*func([]uint8, []string, interface{}, []string) (interface{}, bool))
 			if err != nil {
-				utils.LogFatal("PullApiData", "Error looking up plugin PagingPeek function", err)
+				utils.LogError("PullApiData", "Error looking up plugin PagingPeek function", err)
+				return []byte(nil)
 			}
 
-			// TODO: This doesn't work with a sub endpoint that uses a different
-			//     plugin.
+			// TODO: This doesn't work with a sub endpoint that uses a different plugin.
 			holderResponseList, holderJsonKeys := runThroughEndpoints(api.Endpoints, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, true, 0)
 			for k, v := range holderResponseList {
 				responseList[k] = v
@@ -295,7 +301,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 		timeRegex, err := regexp.Compile("^{{time:(\\-?.+)}}$")
 		if err != nil {
-			utils.LogFatal("runThroughEndpoints", "Failed to parse time regex", err)
+			utils.LogError("runThroughEndpoints", "Failed to parse time regex", err)
+			return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 		}
 
 		for k, v := range ep.Params.QueryString {
@@ -307,7 +314,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				if strings.Contains(value, "{{time:") {
 					matches := timeRegex.FindStringSubmatch(value)
 					if matches == nil || len(matches[1]) == 0 {
-						utils.LogFatal("runThroughEndpoints", fmt.Sprintf("Invalid param value: %s", value), nil)
+						utils.LogError("runThroughEndpoints", "Invalid param value", value)
+						return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 					}
 					if matches[1] == "now" {
 						ep.Params.QueryString[k][index] = strconv.Itoa(int(time.Now().Unix()))
@@ -316,7 +324,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 					duration, err := time.ParseDuration(matches[1])
 					if err != nil {
-						utils.LogFatal("runThroughEndpoints", fmt.Sprintf("Failed to parse duration %s", value), err)
+						utils.LogError("runThroughEndpoints", fmt.Sprintf("Failed to parse duration %s", value), err)
+						return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 					}
 					ep.Params.QueryString[k][index] = strconv.Itoa(int(time.Now().Add(duration).Unix()))
 				}
@@ -342,7 +351,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		if doEndpointSubs {
 			for k, v := range vars {
 				if len(currentBaseKey) != len(desiredBaseKey) || len(currentErrorKey) != len(desiredErrorKey) {
-					utils.LogFatal("PullApiData", "Current and desired key lists must be the same length.", nil)
+					utils.LogError("runThroughEndpoints", "Current and desired key lists must be the same length")
+					return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 				} else {
 					name = strings.Replace(name, "{{"+k+"}}", v, -1)
 					for i := range currentBaseKey {
@@ -383,13 +393,15 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 
 		tempRequest, err := http.NewRequest("GET", ep.Endpoint, nil)
 		if err != nil {
-			utils.LogFatal("PullApiData", "Error creating API request object", err)
+			utils.LogError("runThroughEndpoints", "Error creating API request object", err)
+			return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 		}
 
 		// Create the endpoint key set for iterating on later in the post process.
 		newUuid, err := uuid.NewV4()
 		if err != nil {
-			utils.LogFatal("PullApiData", "Unable to generate new UUID", err)
+			utils.LogError("runThroughEndpoints", "Unable to generate new UUID", err)
+			return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 		}
 		newKeySet := map[string]string{
 			"api_call_name": ep.Name,
@@ -471,7 +483,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		finalRequest := reflect.ValueOf(**PluginAuthFunction).Call(requestValue)
 		statusCode, response, responseHeaders := runApiRequest(finalRequest[0].Interface().(generic_structs.ApiRequest))
 		if statusCode < 200 || statusCode > 299 {
-			log.Printf("(Epico) [%s] Expected 2xx, got %d\n", ep.Name, statusCode)
+			utils.LogWarning("runThroughEndpoints", "[" + ep.Name + "]", fmt.Sprintf("Expected response status 2xx, got %d", statusCode))
 			continue
 		}
 
@@ -500,7 +512,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			//    break it up in the peek func.
 			separateKeys := strings.Split(newApiRequest.Settings.Paging["indicator_from_field"], ",")
 			if len(separateKeys) != 3 {
-				utils.LogFatal("PullApiData", "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+				utils.LogError("runThroughEndpoints", "Calculated paging requires three values - current page number, results per page, total results")
+				return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 			}
 			responseKeys = []string{strconv.Itoa(len(strings.Split(separateKeys[0], "."))) + "," + strconv.Itoa(len(strings.Split(separateKeys[1], ".")))}
 			for _, v := range separateKeys {
@@ -533,7 +546,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				if nextApiRequest.Settings.Paging["indicator_from_structure"] == "full_url" {
 					nextApiRequest.FullRequest.URL, err = nextApiRequest.FullRequest.URL.Parse(oldPageValue.(string))
 					if err != nil {
-						utils.LogFatal("PullApiData", "Error parsing paging URL returned", err)
+						utils.LogError("runThroughEndpoints", "Error parsing paging URL returned", err)
+						return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 					}
 				} else if nextApiRequest.Settings.Paging["indicator_from_structure"] == "calculated" {
 					q := nextApiRequest.FullRequest.URL.Query()
@@ -554,7 +568,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			newFinalRequest := reflect.ValueOf(**PluginAuthFunction).Call(newRequestValue)
 			newStatusCode, newResponse, newResponseHeaders := runApiRequest(newFinalRequest[0].Interface().(generic_structs.ApiRequest))
 			if newStatusCode < 200 || newStatusCode > 299 {
-				log.Printf("(Epico) Expected new status 2xx, got %d\n", newStatusCode)
+				utils.LogWarning("runThroughEndpoints", "[" + ep.Name + "]", fmt.Sprintf("Expected new response status 2xx, got %d", newStatusCode))
 			}
 
 			comRequest = nextApiRequest.ToComparableApiRequest()
@@ -573,7 +587,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 				// See above.
 				separateKeys := strings.Split(nextApiRequest.Settings.Paging["indicator_from_field"], ",")
 				if len(separateKeys) != 3 {
-					utils.LogFatal("PullApiData", "Calculated paging requires three values in a csv - current page number, results per page, total results.", nil)
+					utils.LogError("runThroughEndpoints", "Calculated paging requires three values - current page number, results per page, total results")
+					return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 				}
 
 				newResponseKeys = []string{strconv.Itoa(len(strings.Split(separateKeys[0], "."))) + "," + strconv.Itoa(len(strings.Split(separateKeys[1], ".")))}
@@ -622,7 +637,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			var unparsedStructure map[string]interface{}
 			if err := json.Unmarshal(pagingData, &unparsedArrayStructure); err != nil {
 				if err := json.Unmarshal(pagingData, &unparsedStructure); err != nil {
-					utils.LogFatal("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
+					utils.LogError("runThroughEndpoints:SubEndpoints", "Error unmarshaling JSON", err)
+					return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 				}
 				unparsedArrayStructure = append(unparsedArrayStructure, unparsedStructure)
 			}
@@ -647,7 +663,8 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 					case int64:
 						endpointKey = strconv.FormatInt(value.(int64), 10)
 					default:
-						utils.LogFatal("(Epico:SubEndpoints:EndpointKey)", fmt.Sprintf("Unrecognized value type: %#v", tp), nil)
+						utils.LogError("runThroughEndpoints:SubEndpoints:EndpointKey", fmt.Sprintf("Unrecognized value type: %#v", tp))
+						return map[generic_structs.ComparableApiRequest][]byte{}, []map[string]string{}
 					}
 					newSubEp.EndpointKeyValues = make(map[string]interface{})
 					for endpointSourceKeyName, endpointTargetKeyName := range endpoint.EndpointKeyNames {
@@ -699,51 +716,62 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 }
 
 func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) {
+	logRequest := os.Getenv("EPICO_LOG_REQUEST")
+	if logRequest == "true" {
+		utils.LogInfo("runApiRequest", "Request", apiRequest.FullRequest.Method + " " + apiRequest.FullRequest.URL.String())
+	}
+
+	logRequestHeaders := os.Getenv("EPICO_LOG_REQUEST_HEADERS")
+	if logRequestHeaders == "true" {
+		utils.LogInfo("runApiRequest", "Request Headers", apiRequest.FullRequest.Header)
+	}
+
+	logRequestBody := os.Getenv("EPICO_LOG_REQUEST_BODY")
+	if logRequestBody == "true" {
+		utils.LogInfo("runApiRequest", "Request Body", string(ioutil.ReadAll(apiRequest.FullRequest.Body)))
+	}
+
 	var client *http.Client
 	if apiRequest.Client == nil {
 		client = &http.Client{}
 	} else {
 		client = apiRequest.Client
 	}
+
 	resp, err := client.Do(apiRequest.FullRequest)
 	if err != nil {
-		utils.LogFatal("runApiRequest", "Error running the request", err)
+		utils.LogError("runApiRequest", "Error running the request", err)
+		return 400, []byte("[]"), []byte("[]")
 	}
 	defer resp.Body.Close()
 	// TODO: Handle failed connections better / handle retry? Golang "Context"?
 	// i/o timeoutpanic: runtime error: invalid memory address or nil pointer dereference
 	// [signal SIGSEGV: segmentation violation code=0x1 addr=0x40 pc=0x6aa2ba]
 
+	headers, err := json.Marshal(resp.Header)
+	if err != nil {
+		utils.LogError("runApiRequest", "Error reading request headers", err)
+		return resp.StatusCode, []byte("[]"), []byte("[]")
+	}
+
+	logResponseHeaders := os.Getenv("EPICO_LOG_RESPONSE_HEADERS")
+	if logResponseHeaders == "true" {
+		utils.LogInfo("runApiRequest", "Response Headers", resp.Header)
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		utils.LogFatal("runApiRequest", "Error reading request body", err)
+		utils.LogError("runApiRequest", "Error reading response body", err)
+		return resp.StatusCode, []byte("[]"), []byte("[]")
 	}
 	if resp.StatusCode == 204 && len(body) == 0 {
 		body = []byte("[]")
 	}
 
-	log_request := os.Getenv("EPICO_LOG_REQUEST")
-	if log_request == "true" {
-		log.Printf("Request: %#v", apiRequest.FullRequest.URL.String())
+	logResponse := os.Getenv("EPICO_LOG_RESPONSE")
+	if logResponse == "true" {
+		utils.LogInfo("runApiRequest", "Response", string(body))
 	}
-	log_response := os.Getenv("EPICO_LOG_REQUEST")
-	if log_response == "true" {
-		log.Printf("Response: %#v", string(body))
-	}
-
-	headers, err := json.Marshal(resp.Header)
-	if err != nil {
-		utils.LogFatal("runApiRequest", "Error reading request headers", err)
-	}
-
-	//for k, v := range apiRequest.FullRequest.Header {
-	//    for _, rv := range v {
-	//        utils.LogWarn("Request Headers", k + ": " + rv, nil)
-	//    }
-	//}
-	//utils.LogWarn("Request", string(apiRequest.FullRequest.URL.String())+"\n\n", nil)
-	//utils.LogWarn("Response Headers", string(headers)+"\n\n", nil)
-	//utils.LogWarn("Response", string(body)+"\n\n", nil)
 
 	return resp.StatusCode, body, headers
 }

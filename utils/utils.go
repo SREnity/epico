@@ -34,12 +34,31 @@ type oneloginTokens struct {
 	Data []oneloginData `json:"data"`
 }
 
-func LogFatal(function string, text string, err error) {
-	log.Fatalf("(Epico:%v) %v: %v\n", function, text, err)
+func LogOutput(level string, function string, texts ...interface{}) {
+	logText := "[%v] [Epico:%v] %v"
+	if len(texts) >= 2 {
+		logText = logText + ": %v"
+		if len(texts) >= 2 {
+			logText = logText + strings.Repeat(", %v", len(texts[2:]))
+		}
+	}
+
+	log.SetOutput(os.Stdout)
+	log.Printf(logText, append([]interface{}{level, function}, texts...)...)
 }
 
-func LogWarn(function string, text string, err error) {
-	log.Printf("(Epico:%v) %v: %v\n", function, text, err)
+func LogInfo(function string, texts ...interface{}) {
+	LogOutput("Info", function, texts...)
+}
+
+func LogWarning(function string, texts ...interface{}) {
+	LogOutput("Warning", function, texts...)
+}
+
+func LogError(function string, texts ...interface{}) {
+	log.SetOutput(os.Stdout)
+	log.Print("----------------------------   Error   ----------------------------")
+	LogOutput("Error", function, texts...)
 }
 
 // This function simply takes an XML response and converts it to JSON (the
@@ -47,15 +66,13 @@ func LogWarn(function string, text string, err error) {
 // Args:
 // apiResponse = A []byte representation of the XML API response.
 func XmlResponseProcess(apiResponse []byte) []byte {
-
 	jsonBody, err := xj.Convert(bytes.NewReader(apiResponse))
 	if err != nil {
-		LogFatal("XmlResponseProcess", "Error parsing XML response", err)
-		return nil
+		LogError("XmlResponseProcess", "Error parsing XML response", err)
+		return []byte(nil)
 	}
 
 	return jsonBody.Bytes()
-
 }
 
 // Used to expand out the shorthand YAMLs with expansion vars into a series of
@@ -100,8 +117,8 @@ func CollapseJson(returnsList map[string]interface{}, errorsList map[string]inte
 
 	finalJson, err := json.Marshal(finalList)
 	if err != nil {
-		LogFatal("CollapseJson", "Unable to Marshal final list JSON", err)
-		return nil
+		LogError("CollapseJson", "Unable to Marshal final list JSON", err)
+		return []byte(nil)
 	}
 
 	return []byte(finalJson)
@@ -124,7 +141,8 @@ func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonK
 
 	err := json.Unmarshal(processedJson, &unparsedStructure)
 	if err != nil {
-		LogFatal("ParsePostProcessedJson", "Error unmarshaling JSON", err)
+		LogError("ParsePostProcessedJson", "Error unmarshaling JSON", err)
+		return map[string]interface{}{}, map[string]interface{}{}
 	}
 
 	endpointKeyValues := make(map[string]interface{})
@@ -141,7 +159,8 @@ func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonK
 		//    data from each API call.
 		length, err := strconv.Atoi(keys["key_count"])
 		if err != nil {
-			LogFatal("ParsePostProcessedJson", "Invalid key count", err)
+			LogError("ParsePostProcessedJson", "Invalid key count", err)
+			return map[string]interface{}{}, map[string]interface{}{}
 		}
 		for i := 0; i < length; i++ {
 			currentBaseKeySet := strings.Split(
@@ -153,7 +172,8 @@ func ParsePostProcessedJson(response generic_structs.ComparableApiRequest, jsonK
 			desiredErrorKeySet := strings.Split(
 				keys["desired_error_key_"+strconv.Itoa(i)], ".")
 			if len(currentBaseKeySet) == 0 || len(desiredBaseKeySet) == 0 {
-				LogFatal("ParsePostProcessedJson", "Invaid current_base_key or desired_base_key.", nil)
+				LogError("ParsePostProcessedJson", "Invalid current_base_key or desired_base_key")
+				return map[string]interface{}{}, map[string]interface{}{}
 			}
 
 			// Run through non-error keys.
@@ -250,12 +270,9 @@ func RemoveXmlTagFromJson(tag string, jsonBody []byte) []byte {
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
 func DefaultXmlPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
-
 	jsonResponse := XmlResponseProcess(response)
 
-	return DefaultJsonPagingPeek(jsonResponse, responseKeys, oldPageValue,
-		peekParams)
-
+	return DefaultJsonPagingPeek(jsonResponse, responseKeys, oldPageValue, peekParams)
 }
 
 // Peeks at a standard JSON response for paging indicators.
@@ -265,7 +282,6 @@ func DefaultXmlPagingPeek(response []byte, responseKeys []string, oldPageValue i
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
 func DefaultJsonPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
-
 	if len(response) < 4 || response == nil {
 		return interface{}(nil), false
 	}
@@ -275,11 +291,10 @@ func DefaultJsonPagingPeek(response []byte, responseKeys []string, oldPageValue 
 		var responseSlice []interface{}
 		err1 := json.Unmarshal(response, &responseSlice)
 		if err1 != nil {
-			LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON ("+string(response)+")",
-				err1)
+			LogError("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON (" + string(response) + ")", err1)
+			return interface{}(nil), false
 		} else {
-			LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
-				err)
+			LogError("DefaultJsonPagingPeek", "Slice JSON response - no paging", err)
 			return interface{}(nil), false
 		}
 	}
@@ -300,8 +315,8 @@ func DefaultJsonPagingPeek(response []byte, responseKeys []string, oldPageValue 
 	if pageValue == oldPageValue {
 		pageValue = nil
 	}
-	return pageValue, (pageValue != "" && pageValue != nil)
 
+	return pageValue, (pageValue != "" && pageValue != nil)
 }
 
 // Peeks at a standard JSON response for paging indicators.
@@ -313,13 +328,12 @@ func DefaultJsonPagingPeek(response []byte, responseKeys []string, oldPageValue 
 //                [0] => Valid regex with paging param located in the first
 //                    subexpression group in ()s ex: <([^>]*)>; rel=\"next\"
 func RegexJsonPagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
-
 	re, err := regexp.Compile(peekParams[0])
 	if err != nil {
-		LogFatal("RegexJsonPagingPeek", "Invalid regex provided in YAML", err)
+		LogError("RegexJsonPagingPeek", "Invalid regex provided in YAML", err)
+		return interface{}(nil), false
 	}
-	pagingValue, valueIsPresent := DefaultJsonPagingPeek(response, responseKeys,
-		oldPageValue, peekParams)
+	pagingValue, valueIsPresent := DefaultJsonPagingPeek(response, responseKeys, oldPageValue, peekParams)
 	if !valueIsPresent {
 		return interface{}(nil), false
 	}
@@ -357,27 +371,26 @@ func RegexJsonPagingPeek(response []byte, responseKeys []string, oldPageValue in
 // oldPageValue = The previous page value.
 // peekParams   = Unused, plugin-specific params.
 func CalculatePagingPeek(response []byte, responseKeys []string, oldPageValue interface{}, peekParams []string) (interface{}, bool) {
-
 	if len(responseKeys) < 4 {
-		LogFatal("CalculatePagingPeek",
-			"Unable to calculate paging without at least three keys", nil)
+		LogError("CalculatePagingPeek", "Unable to calculate paging without at least three keys")
+		return interface{}(nil), false
 	}
 	splitLengthKeys := strings.Split(responseKeys[0], ",")
 
 	if len(splitLengthKeys) != 2 {
-		LogFatal("CalculatePagingPeek",
-			"Invalid length keys for paging calculation", nil)
+		LogError("CalculatePagingPeek", "Invalid length keys for paging calculation")
+		return interface{}(nil), false
 	}
 	pageKeySplit, err := strconv.Atoi(splitLengthKeys[0])
 	if err != nil {
-		LogFatal("CalculatePagingPeek",
-			"Non integer length keys for paging calculation", nil)
+		LogError("CalculatePagingPeek", "Non integer length keys for paging calculation")
+		return interface{}(nil), false
 	}
 
 	perPageKeySplit, err := strconv.Atoi(splitLengthKeys[1])
 	if err != nil {
-		LogFatal("CalculatePagingPeek",
-			"Non integer length keys for paging calculation", nil)
+		LogError("CalculatePagingPeek", "Non integer length keys for paging calculation")
+		return interface{}(nil), false
 	}
 
 	// Remove our calculated length values after using them.
@@ -389,11 +402,10 @@ func CalculatePagingPeek(response []byte, responseKeys []string, oldPageValue in
 		var responseSlice []interface{}
 		err1 := json.Unmarshal(response, &responseSlice)
 		if err1 != nil {
-			LogFatal("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON",
-				err)
+			LogError("DefaultJsonPagingPeek", "Unable to Unmarshal peek JSON", err)
+			return interface{}(nil), false
 		} else {
-			LogWarn("DefaultJsonPagingPeek", "Slice JSON response - no paging.",
-				err)
+			LogError("DefaultJsonPagingPeek", "Slice JSON response - no paging", err)
 			return interface{}(nil), false
 		}
 	}
@@ -449,7 +461,6 @@ func CalculatePagingPeek(response []byte, responseKeys []string, oldPageValue in
 	}
 
 	return pageValue, (pageValue != "" && pageValue != nil)
-
 }
 
 // Takes a map of requests to their []byte responses, iterates through them to
@@ -457,7 +468,6 @@ func CalculatePagingPeek(response []byte, responseKeys []string, oldPageValue in
 // Vars:
 // apiResponseMap = A map of API requests made and their corresponding responses
 func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequest][]byte, jsonKeys []map[string]string) []byte {
-
 	parsedStructure := make(map[string]interface{})
 	parsedErrorStructure := make(map[string]interface{})
 
@@ -468,11 +478,9 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 		err := json.Unmarshal(response, &jsonSlice)
 		if err == nil {
 			// We're here, because the response is an array of items
-			LogWarn("DefaultJsonPostProcess", "JSON is a slice - building map.",
-				err)
+			LogWarning("DefaultJsonPostProcess", "JSON is a slice - building map", err)
 			// Maybe more efficient, but less robust than build and marshal?
-			response = append([]byte("{\"items\":"),
-				append(response, []byte("}")...)...)
+			response = append([]byte("{\"items\":"), append(response, []byte("}")...)...)
 			// Add our new key we created to the base key expected.
 			// Only prepend it if the response is an array, otherwise we're going to
 			// mess up the expected base key from a map response
@@ -480,8 +488,8 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 				if v["api_call_uuid"] == request.Uuid {
 					length, err := strconv.Atoi(v["key_count"])
 					if err != nil {
-						LogFatal("DefaultJsonPostProcess",
-							"Non-integer key_count is invalid", err)
+						LogError("DefaultJsonPostProcess", "Non-integer key_count is invalid", err)
+						return []byte(nil)
 					}
 					for ci := 0; ci < length; ci++ {
 						keyString := "current_base_key_" + strconv.Itoa(ci)
@@ -499,15 +507,13 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 			}
 		}
 
-		structureVar, errorVar := ParsePostProcessedJson(request, jsonKeys,
-			response, parsedStructure, parsedErrorStructure)
+		structureVar, errorVar := ParsePostProcessedJson(request, jsonKeys, response, parsedStructure, parsedErrorStructure)
 		parsedStructure = structureVar
 		parsedErrorStructure = errorVar
 	}
 
 	returnJson := CollapseJson(parsedStructure, parsedErrorStructure)
 	return returnJson
-
 }
 
 // Auth function for basic username/password auth implementations.  Takes a
@@ -518,7 +524,6 @@ func DefaultJsonPostProcess(apiResponseMap map[generic_structs.ComparableApiRequ
 //              [0] => username
 //              [1] => password
 func BasicAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
-
 	apiRequest.FullRequest.SetBasicAuth(authParams[0], authParams[1])
 
 	return apiRequest
@@ -535,11 +540,9 @@ func BasicAuth(apiRequest generic_structs.ApiRequest, authParams []string) gener
 //              [x] => header key
 //              [x+1] => header value
 func CustomQuerystringAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
-
 	if len(authParams)%2 != 0 {
-		LogFatal("CustomQuerystringAuth",
-			"Invalid querystring params - must have a value for every key.",
-			nil)
+		LogError("CustomQuerystringAuth", "Invalid querystring params - must have a value for every key")
+		return generic_structs.ApiRequest{}
 	}
 
 	q := apiRequest.FullRequest.URL.Query()
@@ -568,10 +571,9 @@ func CustomQuerystringAuth(apiRequest generic_structs.ApiRequest, authParams []s
 //              [x] => header key
 //              [x+1] => header value
 func CustomHeaderAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
-
 	if len(authParams)%2 != 0 {
-		LogFatal("CustomHeaderAuth",
-			"Invalid header params - must have a value for every key.", nil)
+		LogError("CustomHeaderAuth", "Invalid header params - must have a value for every key")
+		return generic_structs.ApiRequest{}
 	}
 	for i := 0; i < len(authParams)-1; i += 2 {
 		// Don't duplicate keys that are the same.
@@ -600,7 +602,6 @@ func CustomHeaderAuth(apiRequest generic_structs.ApiRequest, authParams []string
 //              [x] => header key
 //              [x+1] => header value
 func CustomHeaderAndBasicAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
-
 	apiRequest = BasicAuth(apiRequest, authParams[:2])
 	apiRequest = CustomHeaderAuth(apiRequest, authParams[2:])
 
@@ -612,12 +613,14 @@ func OneloginAuth(apiRequest generic_structs.ApiRequest, authParams []string) ge
 	reqDataStruct := &oneloginRequest{"client_credentials"}
 	reqDataBytes, err := json.Marshal(reqDataStruct)
 	if err != nil {
-		LogFatal("OneloginAuth", "Failed to marshal auth request data", err)
+		LogError("OneloginAuth", "Failed to marshal auth request data", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	req, err := http.NewRequest("POST", authParams[2], bytes.NewBuffer(reqDataBytes))
 	if err != nil {
-		LogFatal("OneloginAuth", "Failed to initialize HTTP request for auth", err)
+		LogError("OneloginAuth", "Failed to initialize HTTP request for auth", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -627,22 +630,26 @@ func OneloginAuth(apiRequest generic_structs.ApiRequest, authParams []string) ge
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		LogFatal("OneloginAuth", "Failed to perform request", err)
+		LogError("OneloginAuth", "Failed to perform request", err)
+		return generic_structs.ApiRequest{}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		LogFatal("OneloginAuth", fmt.Sprintf("Expected 200, got %d", resp.StatusCode), nil)
+		LogError("OneloginAuth", "[" + apiRequest.FullRequest.URL.String() + "]", fmt.Sprintf("Expected response status 200, got %d", resp.StatusCode))
+		return generic_structs.ApiRequest{}
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		LogFatal("OneloginAuth", "Failed to read token data response body", err)
+		LogError("OneloginAuth", "Failed to read token data response body", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	var tokenData oneloginTokens
 	if err := json.Unmarshal(bodyBytes, &tokenData); err != nil {
-		LogFatal("OneloginAuth", "Failed to unmarshal token data JSON", err)
+		LogError("OneloginAuth", "Failed to unmarshal token data JSON", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	return CustomHeaderAuth(apiRequest, []string{"Authorization", fmt.Sprintf("bearer %s", tokenData.Data[0].AccessToken)})
@@ -661,10 +668,9 @@ func OneloginAuth(apiRequest generic_structs.ApiRequest, authParams []string) ge
 //              [x] => Session key
 //              [x+1] => Session value
 func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string) generic_structs.ApiRequest {
-
 	if len(authParams[4:])%2 != 0 {
-		LogFatal("SessionTokenAuth",
-			"Invalid header params - must have a value for every key.", nil)
+		LogError("SessionTokenAuth", "Invalid header params - must have a value for every key")
+		return generic_structs.ApiRequest{}
 	}
 
 	bodyMap := map[string]string{}
@@ -677,20 +683,22 @@ func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string
 
 	jsonString, err := json.Marshal(bodyMap)
 	if err != nil {
-		LogFatal("SessionTokenAuth", "Error marshaling JSON", err)
+		LogError("SessionTokenAuth", "Error marshaling JSON", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	// TODO: Break this out to allow URL encoded session function as well
 	resp, err := http.Post(authParams[3], "application/json", bytes.NewBuffer(jsonString))
 	if err != nil {
-		LogFatal("SessionTokenAuth", "Error running the session POST request",
-			err)
+		LogError("SessionTokenAuth", "Error running the session POST request", err)
+		return generic_structs.ApiRequest{}
 	}
 	defer resp.Body.Close()
 
 	// TODO: Use a better technique instead of raising an error
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		LogFatal("SessionTokenAuth", fmt.Sprintf("Expected response status 2xx, got %d", resp.StatusCode), nil)
+		LogError("SessionTokenAuth", "[" + apiRequest.FullRequest.URL.String() + "]", fmt.Sprintf("Expected response status 2xx, got %d", resp.StatusCode))
+		return generic_structs.ApiRequest{}
 	}
 
 	// TODO: Handle failed connections better / handle retry? Golang "Context"?
@@ -699,14 +707,15 @@ func SessionTokenAuth(apiRequest generic_structs.ApiRequest, authParams []string
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		LogFatal("SessionTokenAuth", "Error reading request body", err)
+		LogError("SessionTokenAuth", "Error reading request body", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	var jsonResponseMap interface{}
 	err = json.Unmarshal(body, &jsonResponseMap)
 	if err != nil {
-		LogFatal("SessionTokenAuth", "Unable to unmarshal session JSON",
-			err)
+		LogError("SessionTokenAuth", "Unable to unmarshal session JSON", err)
+		return generic_structs.ApiRequest{}
 	}
 
 	var tokenValue string
@@ -740,7 +749,8 @@ func Oauth2TwoLegAuth(apiRequest generic_structs.ApiRequest, authParams []string
 	for _, v := range strings.Split(authParams[4], ",") {
 		colonSplit := strings.Index(v, "|")
 		if colonSplit < 0 {
-			LogFatal("Oauth2TwoLegAuth", "Invalid endpoint params", nil)
+			LogError("Oauth2TwoLegAuth", "Invalid endpoint params")
+			return generic_structs.ApiRequest{}
 		}
 		values.Add(v[:colonSplit], v[colonSplit+1:])
 	}
@@ -840,8 +850,8 @@ func ParseJsonSubStructure(kSet []string, count int, subStructure interface{}) [
 
 	marshaledInterface, err := json.Marshal(subStructure)
 	if err != nil {
-		LogFatal("ParseJsonSubStructure", "Error marshaling JSON", err)
-		return nil
+		LogError("ParseJsonSubStructure", "Error marshaling JSON", err)
+		return []interface{}{}
 	}
 
 	err = json.Unmarshal(marshaledInterface, &subStructureMap)
@@ -851,7 +861,8 @@ func ParseJsonSubStructure(kSet []string, count int, subStructure interface{}) [
 			if err != nil {
 				// TODO: Failure shouldn't wipe the map.  Really should
 				//    unmarshal elsewhere and check.
-				LogFatal("ParseJsonSubStructure", "Error unmarshaling JSON", err)
+				LogError("ParseJsonSubStructure", "Error unmarshaling JSON", err)
+				return []interface{}{}
 			}
 		}
 	} else { // Wasn't a list? Append it to the blank to make a list.
@@ -935,7 +946,8 @@ func addJsonKeyStructure(kSet []string, count int, currentStructure map[string]i
 func marshalToInterface(data interface{}) interface{} {
 	jsonIntermediary, err := json.Marshal(data)
 	if err != nil {
-		LogFatal("marshalToInterface", "Unable to Marshal interface to JSON", err)
+		LogError("marshalToInterface", "Unable to Marshal interface to JSON", err)
+		return interface{}(nil)
 	}
 	var typeParsedStructure interface{}
 	json.Unmarshal([]byte(jsonIntermediary), &typeParsedStructure)

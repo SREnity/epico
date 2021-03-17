@@ -724,11 +724,11 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 
 	log_request := os.Getenv("EPICO_LOG_REQUEST")
 	if log_request == "true" {
-		log.Printf("Request: %#v", apiRequest.FullRequest.URL.String())
+		log.Printf("(Epico:runApiRequest) Request: %#v", apiRequest.FullRequest.URL.String())
 	}
-	log_response := os.Getenv("EPICO_LOG_REQUEST")
+	log_response := os.Getenv("EPICO_LOG_RESPONSE")
 	if log_response == "true" {
-		log.Printf("Response: %#v", string(body))
+		log.Printf("(Epico:runApiRequest) Response: %#v", string(body))
 	}
 
 	headers, err := json.Marshal(resp.Header)

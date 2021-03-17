@@ -35,7 +35,8 @@ type oneloginTokens struct {
 }
 
 func LogFatal(function string, text string, err error) {
-	log.Fatalf("(Epico:%v) %v: %v\n", function, text, err)
+	log.Printf("----------------------------   Panic   ----------------------------\n")
+	log.Fatalf("(Epico:%v) (Panic) %v: %v\n", function, text, err)
 }
 
 func LogWarn(function string, text string, err error) {

@@ -21,17 +21,19 @@ type ApiRoot struct {
 
 type ApiEndpoint struct {
 	// TODO: Should this use the inheritable settings as well?
-	Name              string            `yaml:"name"` // Required at all levels.
-	Vars              map[string]string `yaml:"vars,omitempty"`
-	SkipEndpoint      map[string][]string `yaml:"skip_endpoint,omitempty"`     // Optional
-	Paging            map[string]string `yaml:"paging,omitempty"`             // Optional
-	Return            string            `yaml:"return,omitempty"`             // Optional
-	Endpoint          string            `yaml:"endpoint"`                     // Required
-	CurrentBaseKey    []string          `yaml:"current_base_key,omitempty"`   // Managing APIs that return a dict => list
-	DesiredBaseKey    []string          `yaml:"desired_base_key,omitempty"`   // Managing APIs that return a dict => list
-	CurrentErrorKey   []string          `yaml:"current_error_key,omitempty"`  // Managing APIs that return a dict => list
-	DesiredErrorKey   []string          `yaml:"desired_error_key,omitempty"`  // Managing APIs that return a dict => list
-	EndpointKeyNames  map[string]string `yaml:"endpoint_key_names,omitempty"` // Needed for adding endpoint key to sub-endpoint JSON
+	Name              string              `yaml:"name"` // Required at all levels.
+	Vars              map[string]string   `yaml:"vars,omitempty"`
+	SkipEndpoint      map[string][]string `yaml:"skip_endpoint,omitempty"`            // Optional
+	Paging            map[string]string   `yaml:"paging,omitempty"`                   // Optional
+	Return            string              `yaml:"return,omitempty"`                   // Optional
+	UseForConnCheck   bool                `yaml:"use_for_connection_check,omitempty"` // Optional
+	SkipForScans      bool                `yaml:"skip_for_scans,omitempty"`           // Optional
+	Endpoint          string              `yaml:"endpoint"`                           // Required
+	CurrentBaseKey    []string            `yaml:"current_base_key,omitempty"`         // Managing APIs that return a dict => list
+	DesiredBaseKey    []string            `yaml:"desired_base_key,omitempty"`         // Managing APIs that return a dict => list
+	CurrentErrorKey   []string            `yaml:"current_error_key,omitempty"`        // Managing APIs that return a dict => list
+	DesiredErrorKey   []string            `yaml:"desired_error_key,omitempty"`        // Managing APIs that return a dict => list
+	EndpointKeyNames  map[string]string   `yaml:"endpoint_key_names,omitempty"`       // Needed for adding endpoint key to sub-endpoint JSON
 	EndpointKeyValues map[string]interface{}
 	Documentation     string                   `yaml:"documentation,omitempty"` // Optional
 	Params            ApiParams                `yaml:"params,flow,omitempty"`   // Optional
@@ -62,6 +64,7 @@ type ComparableApiRequest struct {
 	EndpointKeyValues string
 	AttemptTime       time.Time
 	Time              time.Time
+	ResponseCode      int
 }
 
 type ApiRequestInheritableSettings struct {
@@ -105,6 +108,7 @@ func (a ApiRequest) ToComparableApiRequest() ComparableApiRequest {
 		AttemptTime:       a.AttemptTime,
 		Time:              a.Time,
 		EndpointKeyValues: serializedKeyValues,
+		ResponseCode:      200,
 	}
 }
 

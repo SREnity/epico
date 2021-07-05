@@ -53,8 +53,10 @@ import (
 //                            },
 //                            ...
 //                        }
+// connectionOnly  = Parameter that if true, endpoints in yaml with use_for_connection_check set
+//                   to true will be used, others skipped
 // TODO: Should this be passed as a JSON []byte/string we can just marshal?
-func PullApiData(configLocation string, authParams []string, peekParams []string, postParams []string, additionalParams map[string]map[string]map[string]string) []byte {
+func PullApiData(configLocation string, authParams []string, peekParams []string, postParams []string, additionalParams map[string]map[string]map[string]string, connectionOnly bool) []byte {
 	api := generic_structs.ApiRoot{}
 
 	responseList := make(map[generic_structs.ComparableApiRequest][]byte)
@@ -196,12 +198,41 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 			}
 
 			// TODO: This doesn't work with a sub endpoint that uses a different plugin.
-			holderResponseList, holderJsonKeys := runThroughEndpoints(api.Endpoints, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, true, 0)
+			holderResponseList, holderJsonKeys := runThroughEndpoints(api.Endpoints, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, true, 0, connectionOnly)
 			for k, v := range holderResponseList {
 				responseList[k] = v
 			}
 			jsonKeys = append(jsonKeys, holderJsonKeys...)
 		}
+	}
+
+	if connectionOnly {
+		respCodeSuccess := false
+		checkResult := make(map[string]string)
+		checkResult["Errors"] = "Invalid Credentials"
+		errorJson, _ := json.Marshal(checkResult)
+		if len(responseList) == 0 {
+			return errorJson
+		}
+		finalListElement := make(map[generic_structs.ComparableApiRequest][]byte)
+
+		for k := range responseList {
+			if k.ResponseCode > 200 && k.ResponseCode < 299 {
+				respCodeSuccess = true
+				finalListElement[k] = responseList[k]
+			}
+		}
+		if !respCodeSuccess {
+			for k := range responseList {
+				if string(responseList[k]) == "[]" {
+					return errorJson
+				} else {
+					finalListElement[k] = responseList[k]
+					break
+				}
+			}
+		}
+		responseList = finalListElement
 	}
 
 	// Theoretically we could send each response to its own post-processing,
@@ -218,12 +249,23 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 	return finalResponse[0].Bytes()
 }
 
-func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsData generic_structs.ApiRequestInheritableSettings, additionalParams map[string]map[string]map[string]string, PluginAuthFunction **func(generic_structs.ApiRequest, []string) generic_structs.ApiRequest, PluginResponseToJsonFunction **func(map[string]string, []byte) []byte, PluginPagingPeekFunction **func([]uint8, []string, interface{}, []string) (interface{}, bool), runSubEndpoints bool, depth int) (map[generic_structs.ComparableApiRequest][]byte, []map[string]string) {
+func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsData generic_structs.ApiRequestInheritableSettings, additionalParams map[string]map[string]map[string]string, PluginAuthFunction **func(generic_structs.ApiRequest, []string) generic_structs.ApiRequest, PluginResponseToJsonFunction **func(map[string]string, []byte) []byte, PluginPagingPeekFunction **func([]uint8, []string, interface{}, []string) (interface{}, bool), runSubEndpoints bool, depth int, connectionOnly bool) (map[generic_structs.ComparableApiRequest][]byte, []map[string]string) {
 	responseList := make(map[generic_structs.ComparableApiRequest][]byte)
 	var jsonKeys []map[string]string
 
 	for _, ep := range endpoints {
 		// Clone and adjust settings map
+		if connectionOnly {
+			if !ep.UseForConnCheck {
+				continue
+			}
+		} else {
+			if ep.SkipForScans {
+				log.Printf("Endpoint marked to skip %s", ep.Name)
+				continue
+			}
+		}
+
 		var name string
 		var currentBaseKey, desiredBaseKey, currentErrorKey, desiredErrorKey []string
 		var vars, paging map[string]string
@@ -484,11 +526,16 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 		statusCode, response, responseHeaders := runApiRequest(finalRequest[0].Interface().(generic_structs.ApiRequest))
 		if statusCode < 200 || statusCode > 299 {
 			utils.LogWarning("runThroughEndpoints", "[" + ep.Name + "]", fmt.Sprintf("Expected response status 2xx, got %d", statusCode))
-			continue
+			if !connectionOnly {
+				continue
+			}
 		}
 
 		comRequest := newApiRequest.ToComparableApiRequest()
 		comRequest.Uuid = newUuid.String()
+		if connectionOnly {
+			comRequest.ResponseCode = statusCode
+		}
 		// If we've done a request to this endpoint before, append the
 		//    result - otherwise, create a new key in our response Map.
 		// Also, don't append the result if we don't want to return this data
@@ -704,7 +751,7 @@ func runThroughEndpoints(endpoints []generic_structs.ApiEndpoint, rootSettingsDa
 			}
 
 			// Recursively call this method for each sub endpoint.
-			subResponseList, subJsonKeys := runThroughEndpoints(epHolder, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, false, depth+1)
+			subResponseList, subJsonKeys := runThroughEndpoints(epHolder, rootSettingsData, additionalParams, PluginAuthFunction, PluginResponseToJsonFunction, PluginPagingPeekFunction, false, depth+1, connectionOnly)
 			for k, v := range subResponseList {
 				responseList[k] = v
 			}
@@ -728,7 +775,8 @@ func runApiRequest(apiRequest generic_structs.ApiRequest) (int, []byte, []byte) 
 
 	logRequestBody := os.Getenv("EPICO_LOG_REQUEST_BODY")
 	if logRequestBody == "true" {
-		utils.LogInfo("runApiRequest", "Request Body", string(ioutil.ReadAll(apiRequest.FullRequest.Body)))
+		body, _ := ioutil.ReadAll(apiRequest.FullRequest.Body)
+		utils.LogInfo("runApiRequest", "Request Body", string(body))
 	}
 
 	var client *http.Client

@@ -26,7 +26,7 @@ type ScanLogEntries struct {
 
 
 func (r *Reporter) AddScanLogs(id int, scanLogs []ScanLog) error {
-	pluginUpdateURL := fmt.Sprintf("%s/api/v1/user_plugins/%d/add_scan_logs.json", os.Getenv("DASHBOARD_API_URL"), id)
+	pluginUpdateURL := fmt.Sprintf("%s/api/v1/user_plugins/%d/add_scan_logs.json", os.Getenv("INSIGHTS_URL"), id)
 
 	json_array := ScanLogEntries{
 		Scan_log_entries: scanLogs,
@@ -61,5 +61,3 @@ func (r *Reporter) AddScanLogs(id int, scanLogs []ScanLog) error {
 	}
 	return nil
 }
-
-

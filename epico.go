@@ -222,14 +222,15 @@ func PullApiData(configLocation string, authParams []string, peekParams []string
 		}
 	}
 
+	checkResult := make(map[string]string)
+	checkResult["Errors"] = "Invalid Credentials"
+	errorJson, _ := json.Marshal(checkResult)
+	if len(responseList) == 0 {
+		return errorJson
+	}
+
 	if connectionOnly {
 		respCodeSuccess := false
-		checkResult := make(map[string]string)
-		checkResult["Errors"] = "Invalid Credentials"
-		errorJson, _ := json.Marshal(checkResult)
-		if len(responseList) == 0 {
-			return errorJson
-		}
 		finalListElement := make(map[generic_structs.ComparableApiRequest][]byte)
 
 		for k := range responseList {
